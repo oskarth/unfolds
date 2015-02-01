@@ -26,7 +26,7 @@
           {:value (:text state)
            :ref "new-item"
            :rows "5" :cols "80"
-           :onChange #(handle-change % owner state)
+           :onChange #(handle-change % owner state)})
         (dom/button #js
           {:onClick #(add-item app owner)} "Add item")))))
 
