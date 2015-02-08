@@ -16,6 +16,12 @@
 (defn handle-change [e owner {:keys [text]}]
   (om/set-state! owner :text (.. e -target -value)))
 
+(defn item-view [item owner]
+  (reify
+    om/IRender
+    (render [this]
+     (dom/li nil (str item)))))
+
 (defn app-view [app owner]
   (reify
     om/IRenderState
@@ -28,7 +34,9 @@
            :rows "5" :cols "80"
            :onChange #(handle-change % owner state)})
         (dom/button #js
-          {:onClick #(add-item app owner)} "Add item")))))
+          {:onClick #(add-item app owner)} "Add item")
+        (apply dom/ul nil
+          (om/build-all item-view (:items app)))))))
 
 
 (defn main []
