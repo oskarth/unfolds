@@ -14,7 +14,12 @@
       (om/transact! app :items #(conj % new-item)))))
 
 (defn handle-change [e owner {:keys [text]}]
-  (om/set-state! owner :text (.. e -target -value)))
+  (let [value (.. e -target -value)
+        count (count value)]
+    (om/set-state! owner :count count)
+    (if (> count 999)
+      (om/set-state! owner :text text)
+      (om/set-state! owner :text value))))
 
 (defn item-view [item owner]
   (reify
@@ -27,11 +32,11 @@
     om/IRenderState
     (render-state [this state]
       (dom/div nil
-        (dom/h1 nil (:text app))
+        (dom/h1 nil (str (:text app) " " (:count state)))
         (dom/textarea #js
           {:value (:text state)
            :ref "new-item"
-           :rows "5" :cols "80"
+           :rows "12" :cols "80"
            :onChange #(handle-change % owner state)})
         (dom/button #js
           {:onClick #(add-item app owner)} "Add item")
