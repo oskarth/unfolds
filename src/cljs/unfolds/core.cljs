@@ -5,7 +5,8 @@
             [cljs.core.async :refer [put! chan <!]]))
 
 (defonce app-state (atom {:text "Hello!"
-                          :items ["foo" "bar"]}))
+                          :items ["foo"
+                                  "Foobar [[foo|blitz]] lolophone hoptigoff."]}))
 
 (defn add-item [app owner]
   (let [new-item (-> (om/get-node owner "new-item")
@@ -21,11 +22,28 @@
       (om/set-state! owner :text text)
       (om/set-state! owner :text value))))
 
+(def link-re #"\[\[([a-z]+)\|([a-z]+)\]\]")
+(defn link [href str] (dom/a #js {:href href} str))
+(defn link? [s] (if (re-find link-re s) true false))
+(defn get-href [s] (str (nth (re-find link-re s) 1)))
+(defn get-title [s] (str (nth (re-find link-re s) 2)))
+(defn split-words [s] (clojure.string/split s #"\s+"))
+
+(defn str-or-link [x]
+  (if (link? x)
+    (link (get-href x) (get-title x))
+    (str " " x " ")))
+
+(defn prepare-item [s]
+  (vec (map str-or-link (split-words s))))
+
 (defn item-view [item owner]
   (reify
     om/IRender
     (render [this]
-      (dom/li nil (str item)))))
+      (dom/li nil
+              (apply dom/div nil
+                     (prepare-item item))))))
 
 (defn app-view [app owner]
   (reify
@@ -42,7 +60,6 @@
                             {:onClick #(add-item app owner)} "Add item")
                (apply dom/ul nil
                       (om/build-all item-view (:items app)))))))
-
 
 (defn main []
   (om/root app-view
