@@ -4,6 +4,7 @@
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <!]]))
 
+;; TODO: Move this else where, just data.
 (def basic-list
   "come get give go keep let make put seem take be do have say see
   send may will about across after against among at before between by
@@ -87,25 +88,56 @@
   public rough sad safe secret short shut simple slow small soft solid
   special strange thin white wrong")
 
-(defonce app-state (atom {:items ["foo"
-                                  "Basic English is an English-based controlled language created by linguist and philosopher Charles Kay Ogden as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of regular English. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
+;; TODO: Move this too.
+;; Old with link "Foobar [[foo|blitz]] lolophone hoptigoff."
 
-Ogden's Basic, and the concept of a simplified English, gained its greatest publicity just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China.[1] More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."
-                                  #_"Foobar [[foo|blitz]] lolophone hoptigoff."]}))
+(defonce app-state (atom {:search "Foobar"
+                          :word-map {"Ogden" [0]}
+                          :visible [0]
+                          :items [[0 "Basic English is an English-based controlled language created by linguist and philosopher Charles Kay Ogden as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of regular English. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
+
+Ogden's Basic, and the concept of a simplified English, gained its greatest publicity just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
+                                  [1 "Foo"]
+                                  [2 "Hello there"]]}))
+
+;; before items looked like this
+;; :items [{:id "foo" :text "bar"}] ;; dammit!
+
+(def id-atom (atom 0))
+(swap! id-atom inc) ;; first item
+(swap! id-atom inc) ;; second item
 
 (defn add-item [app owner]
-  (let [new-item (-> (om/get-node owner "new-item")
-                     .-value)]
+  (let [new-item-text (-> (om/get-node owner "new-item")
+                     .-value)
+        new-item {:id (swap! id-atom inc) :text new-item-text}]
     (when new-item
       (om/transact! app :items #(conj % new-item)))))
+;; Do this when adding
+;;(str (naive-key-extractor item) ", ")
 
-(defn handle-change [e owner {:keys [text]}]
+(defn search [app owner]
+  (let [search (-> (om/get-node owner "search")
+                   .-value)]
+    (when search
+      (om/transact! app :search (fn [] search)))))
+
+;; also filter views?
+
+;; TODO: when adding note, add/merge words-item to word-map
+
+(defn handle-item-change [e owner {:keys [text]}]
   (let [value (.. e -target -value)
         count (count value)]
     (om/set-state! owner :count count)
     (if (> count 999)
       (om/set-state! owner :text text)
       (om/set-state! owner :text value))))
+
+;; This doesn't change the actual thing
+(defn handle-search-change [e owner {:keys [text]}]
+  (let [value (.. e -target -value)]
+    (om/set-state! owner :text text)))
 
 (def link-re #"\[\[([a-z]+)\|([a-z]+)\]\]")
 (defn link [href str] (dom/a #js {:href href} str))
@@ -119,16 +151,16 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
     (link (get-href x) (get-title x))
     (str " " x " ")))
 
-(defn prepare-item [s] (vec (map str-or-link (split-words s))))
+;;(defn prepare-item [s] (vec (map str-or-link (split-words s))))
 
 ;; td-idf, 1-gram
 ;; now with basic-list! (or not, does that help here - more like remove those?)
 ;; and go to lower-case?
 ;; should also have id in it
-#_(defn naive-key-extractor [str]
+(defn naive-key-extractor [str]
     (vec (map first
               (filter #(= (second %) 1)
-                      (frequencies (split-words str))))))
+                      (frequencies (split-words (:text str)))))))
 
 (defn make-word-map [str id]
   (zipmap (map first
@@ -137,15 +169,23 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
 ;; then merge
 ;; should be elsewhere?
 
-(defn item-view [item owner]
+#_(defn item-view [item owner]
   (reify
     om/IRender
     (render [this]
       (dom/li nil
               (apply dom/div nil
-                     (str item)
+                     (str (:text item))
                      (str (naive-key-extractor item) ", ")
                      #_(prepare-item item))))))
+
+(defn visible-item-view [item owner]
+  (reify
+    om/IRender
+    (render [this]
+      (dom/li nil
+              (apply dom/div nil
+                     (str (second item)))))))
 
 (defn app-view [app owner]
   (reify
@@ -153,15 +193,23 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
     (render-state [this state]
       (dom/div nil
                #_(dom/h1 nil (str (:text app) " " (:count state)))
+               (dom/p nil
+                      (str "Search: ")
+                      (dom/input #js {:value (:search state)
+                                      :type "text"
+                                      :ref "search"
+                                      :onChange #(handle-search-change % owner state)})
+                      (dom/button #js {:onClick #(search app owner)} "Search"))
                (dom/textarea #js
                               {:value (:text state)
                                :ref "new-item"
                                :rows "12" :cols "80"
-                               :onChange #(handle-change % owner state)})
-               (dom/button #js
-                            {:onClick #(add-item app owner)} "Add item")
+                               :onChange #(handle-item-change % owner state)})
+               (dom/button #js {:onClick #(add-item app owner)} "Add item")
                (apply dom/ul nil
-                      (om/build-all item-view (:items app)))))))
+                      (om/build-all visible-item-view
+                                    ;; into vec?
+                                    (filter (fn [[i _]] (contains? (:visible app) i)) (:items app))))))))
 
 (defn main []
   (om/root app-view
