@@ -91,9 +91,10 @@
 ;; TODO: Move this too.
 ;; Old with link "Foobar [[foo|blitz]] lolophone hoptigoff."
 
-(defonce app-state (atom {:search "Foobar"
-                          :word-map {"Ogden" [0]}
-                          :visible [0]
+(defonce app-state (atom {:search ""
+                          :word-map {"Ogden" [0]
+                                     "Foo" [1]}
+                          :visible []
                           :items [[0 "Basic English is an English-based controlled language created by linguist and philosopher Charles Kay Ogden as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of regular English. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
 
 Ogden's Basic, and the concept of a simplified English, gained its greatest publicity just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
@@ -103,9 +104,10 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
 ;; before items looked like this
 ;; :items [{:id "foo" :text "bar"}] ;; dammit!
 
-(def id-atom (atom 0))
-(swap! id-atom inc) ;; first item
-(swap! id-atom inc) ;; second item
+(def id-atom (atom -1))
+(swap! id-atom inc) ;; first item, 0
+(swap! id-atom inc) ;; second item, 1
+(swap! id-atom inc) ;; third item, 2
 
 (defn add-item [app owner]
   (let [new-item-text (-> (om/get-node owner "new-item")
@@ -120,9 +122,8 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
   (let [search (-> (om/get-node owner "search")
                    .-value)]
     (when search
-      (om/transact! app :search (fn [] search)))))
-
-;; also filter views?
+      (om/transact! app :search (fn [] search))
+      (om/transact! app :visible (fn [] (get (:word-map @app) search))))))
 
 ;; TODO: when adding note, add/merge words-item to word-map
 
