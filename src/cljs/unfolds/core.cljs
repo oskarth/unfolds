@@ -1,6 +1,7 @@
 (ns unfolds.core
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [om.core :as om :include-macros true]
+  (:require [clojure.set :refer [union]]
+            [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <!]]))
 
@@ -104,19 +105,31 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
 ;; before items looked like this
 ;; :items [{:id "foo" :text "bar"}] ;; dammit!
 
+;; util fn
+(defn in?
+  "true if seq contains elm"
+  [seq elm]
+  (some #(= elm %) seq))
+
 (def id-atom (atom -1))
 (swap! id-atom inc) ;; first item, 0
 (swap! id-atom inc) ;; second item, 1
 (swap! id-atom inc) ;; third item, 2
 
+;; Let's just start with all the words. Leaving freqs in.
+(defn make-word-map [[id str]]
+  (zipmap (map first
+               (frequencies (split-words str)))
+          (repeat [id])))
+
 (defn add-item [app owner]
   (let [new-item-text (-> (om/get-node owner "new-item")
                      .-value)
-        new-item {:id (swap! id-atom inc) :text new-item-text}]
+        new-item [(swap! id-atom inc) new-item-text]]
     (when new-item
+      (om/transact! app :word-map #(merge-with union % (make-word-map new-item)))
       (om/transact! app :items #(conj % new-item)))))
-;; Do this when adding
-;;(str (naive-key-extractor item) ", ")
+
 
 (defn search [app owner]
   (let [search (-> (om/get-node owner "search")
@@ -158,17 +171,22 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
 ;; now with basic-list! (or not, does that help here - more like remove those?)
 ;; and go to lower-case?
 ;; should also have id in it
-(defn naive-key-extractor [str]
+
+;; This is a problem: right now it measures rareness based on its own
+;; note, rather than compared to the universe. You filter out lame
+;; words, but also words like 'English' in an article about Basic
+;; English.
+#_(defn naive-key-extractor [str]
     (vec (map first
               (filter #(= (second %) 1)
                       (frequencies (split-words (:text str)))))))
 
-(defn make-word-map [str id]
-  (zipmap (map first
-               (filter #(= (second %) 1)
-                       (frequencies (split-words str)))) (repeat id)))
-;; then merge
-;; should be elsewhere?
+#_(defn get-words [item]
+  (vec (map first
+            (frequencies (split-words (second item))))))
+
+
+;;(merge-with union wm1 wm2)
 
 #_(defn item-view [item owner]
   (reify
@@ -210,7 +228,7 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
                (apply dom/ul nil
                       (om/build-all visible-item-view
                                     ;; into vec?
-                                    (filter (fn [[i _]] (contains? (:visible app) i)) (:items app))))))))
+                                    (filter (fn [[i _]] (in? (:visible app) i)) (:items app))))))))
 
 (defn main []
   (om/root app-view
