@@ -1,6 +1,7 @@
 (ns unfolds.core
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [clojure.set :refer [union]]
+            [clojure.string :refer [split]]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <!]]))
@@ -26,6 +27,8 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
   "true if seq contains elm"
   [seq elm]
   (some #(= elm %) seq))
+
+(defn split-words [s] (split s #"\s+"))
 
 ;; Let's just start with all the words. Leaving freqs in.
 (defn make-word-map [[id str]]
@@ -65,7 +68,6 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
 (defn link? [s] (if (re-find link-re s) true false))
 (defn get-href [s] (str (nth (re-find link-re s) 1)))
 (defn get-title [s] (str (nth (re-find link-re s) 2)))
-(defn split-words [s] (clojure.string/split s #"\s+"))
 
 (defn str-or-link [x]
   (if (link? x)
