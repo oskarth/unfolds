@@ -1,17 +1,31 @@
 (ns unfolds.core
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go]]
+                   [secretary.core :refer [defroute]])
   (:require [clojure.set :refer [union]]
             [clojure.string :refer [split]]
+            [goog.events :as events]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [cljs.core.async :refer [put! chan <!]]))
+            [cljs.core.async :refer [put! chan <!]]
+            [secretary.core :as secretary])
+  (:import goog.History))
 
 ;; Link format: [[foo|blitz]]
+
+(secretary/set-config! :prefix "#")
+
+(let [history (History.)]
+  (events/listen history "navigate"
+                 (fn [event]
+                   (secretary/dispatch! (.-token event))))
+  (.setEnabled history true))
 
 (defonce app-state (atom {:search ""
                           :word-map {"Ogden" [0]
                                      "Foo" [1]}
-                          :visible []
+                          :visible [] ;; XXX: Bad name, visible items.
+                          :hidden {:item false}
+                          :current-item -1
                           :items [[0 "Basic English is an English-based controlled language created by linguist and philosopher Charles Kay Ogden as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of regular English. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
 
 Ogden's Basic, and the concept of a simplified English, gained its greatest publicity just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
@@ -27,6 +41,11 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
   "true if seq contains elm"
   [seq elm]
   (some #(= elm %) seq))
+
+(defn hidden [^boolean bool]
+  (if bool
+    #js {:display "none"}
+    #js {:display "block"}))
 
 (defn split-words [s] (split s #"\s+"))
 
@@ -88,12 +107,21 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
               (apply dom/div nil
                      (str (second item)))))))
 
+(defn item-view [app owner]
+  (reify
+    om/IRender
+    (render [this]
+      ;; TODO: View a specific item!
+      (dom/div #js {:style (hidden (-> app :hidden :item))}
+               (str (-> app :item))))))
+
 (defn app-view [app owner]
   (reify
     om/IRenderState
     (render-state [this state]
       (dom/div nil
                #_(dom/h1 nil (str (:text app) " " (:count state)))
+               (dom/a #js {:href "#/users"} "Users") ;;   <p><a href="#/users">Users</a></p>
                (dom/p nil
                       (str "Search: ")
                       (dom/input #js {:value (:search state)
@@ -110,6 +138,14 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
                (apply dom/ul nil
                       (om/build-all visible-item-view
                                     (filter (fn [[i _]] (in? (:visible app) i)) (:items app))))))))
+
+;; TODO HEREATM What is dispatch supposed to do?
+;; This is buggy
+(defroute "/notes/:id" {:as params}
+  (om/transact! @app-state :hidden #(assoc % :item false))
+  (om/transact! @app-state :current-item (fn [_] (:id params)))
+  (js/console.log (str "Viewing item: " (:id params))))
+  
 
 (defn main []
   (om/root app-view
