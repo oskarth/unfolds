@@ -117,9 +117,11 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
   (reify
     om/IRender
     (render [this]
-      ;; TODO: View a specific item!
-      (dom/div #js {:style (hidden (-> app :hidden :item))}
-               (str (-> app :item))))))
+      (let [current-item  (:current-item @app-state)]
+        (dom/div #js {:style (hidden (-> app :hidden :item))}
+                 (dom/h1 nil "Current item")
+                 (dom/p nil (str (second (get (:items @app-state)
+                                              (int current-item))))))))))
 
 (defn event-loop [app event-chan]
   (go
@@ -146,6 +148,7 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
     (render-state [this {:keys [chan] :as state}]
       (dom/div nil
                #_(dom/h1 nil (str (:text app) " " (:count state)))
+               (om/build item-view app)
                (dom/a #js {:href "#/notes/1"} "1")
                (dom/a #js {:href "#/notes/2"} "2")
                (dom/p nil
