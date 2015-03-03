@@ -87,7 +87,13 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
         new-item [(swap! id-atom inc) new-item-text]]
     (when new-item
       (om/transact! app :word-map #(merge-with union % (make-word-map new-item)))
-      (om/transact! app :items #(conj % new-item)))))
+      (om/transact! app :items #(conj % new-item))
+      ;; TODO: transact to server
+      ;; XXX: Why doesn't it update the url field? Manually?
+      (secretary/dispatch! (str "#/notes/" (first new-item)))
+      #_(put! comm-alt {:tag :notes
+                        :value {:id (first new-item)}}))))
+;; show item
 
 (defn search [app owner]
   (let [search (-> (om/get-node owner "search")
@@ -114,13 +120,15 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
               (filter #(= (second %) 1)
                       (frequencies (split-words (:text str)))))))
 
+;; TODO: Link to view item, just do preview
+;; TODO: Change name of fn
 (defn visible-item-view [item owner]
   (reify
     om/IRender
     (render [this]
       (dom/li nil
-              (apply dom/div nil
-                     (str (second item)))))))
+              (dom/p nil (second item) " "
+                     (link (str "#/notes/" (first item)) "link"))))))
 
 ;; TODO: with links
 (defn item-view [app owner]
@@ -195,13 +203,17 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
                         (apply dom/ul nil
                                (om/build-all visible-item-view
                                              (filter (fn [[i _]] (in? (:visible app) i))
-                                                     (:items app)))))
+                                                     (:items app))))
+                        (dom/p nil "Indexed words: "
+                               (str (map first (:word-map @app-state))))
+                        )
 
                ;; View
                (om/build item-view app)
 
                ;; Add
                (dom/div #js {:style (hidden (-> app :hidden :add))}
+                        (dom/p nil (str "" (:count state) "/1000"))
                         (dom/textarea #js
                                       {:value (:text state)
                                        :ref "new-item"
