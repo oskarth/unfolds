@@ -9,6 +9,18 @@
             [environ.core :refer [env]]
             [ring.adapter.jetty :refer [run-jetty]]))
 
+;; database
+;; when we get an incoming request, shoot off whole load-data
+;; when we get a post req, save-data
+
+(def db (atom {}))
+
+(defn save-data []
+  (spit "data" (prn-str @db)))
+
+(defn load-data []
+  (reset! db (read-string (slurp "data"))))
+
 (deftemplate page
   (io/resource "index.html") [] [:body] (if is-dev? inject-devmode-html identity))
 
