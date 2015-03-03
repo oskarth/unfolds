@@ -35,7 +35,7 @@
                           :items [[0 "Basic English is an English-based controlled language created by linguist and philosopher Charles Kay Ogden as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of regular English. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
 
 Ogden's Basic, and the concept of a simplified English, gained its greatest publicity just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
-                                  [1 "Foo"]
+                                  [1 "Foobar [[asdad|krieg]] hello. This is another link [[0|zero]]."]
                                   [2 "Hello there"]]}))
 
 (def id-atom (atom -1))
@@ -55,11 +55,25 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
 
 (defn split-words [s] (split s #"\s+"))
 
+(def link-re #"\[\[([0-9]+)\|([a-z]+)\]\]")
+(defn link [href str] (dom/a #js {:href href} str))
+(defn link? [s] (if (re-find link-re s) true false))
+(defn get-href [s] (str (nth (re-find link-re s) 1)))
+(defn get-title [s] (str (nth (re-find link-re s) 2)))
+
+(defn str-or-link [x]
+  (if (link? x)
+    (link (str "/#/notes/" (get-href x)) (get-title x))
+    (str " " x " ")))
+
 ;; Let's just start with all the words. Leaving freqs in.
 (defn make-word-map [[id str]]
   (zipmap (map first
                (frequencies (split-words str)))
           (repeat [id])))
+
+(defn prepare-item [s]
+  (vec (map str-or-link (split-words s))))
 
 (defn add-item [app owner]
   (let [new-item-text (-> (om/get-node owner "new-item")
@@ -88,17 +102,6 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
   (let [value (.. e -target -value)]
     (om/set-state! owner :text text)))
 
-(def link-re #"\[\[([a-z]+)\|([a-z]+)\]\]")
-(defn link [href str] (dom/a #js {:href href} str))
-(defn link? [s] (if (re-find link-re s) true false))
-(defn get-href [s] (str (nth (re-find link-re s) 1)))
-(defn get-title [s] (str (nth (re-find link-re s) 2)))
-
-(defn str-or-link [x]
-  (if (link? x)
-    (link (get-href x) (get-title x))
-    (str " " x " ")))
-
 ;; TODO: Implement proper tf-idf with 1-gram and basic-english-list
 #_(defn naive-key-extractor [str]
     (vec (map first
@@ -113,15 +116,17 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
               (apply dom/div nil
                      (str (second item)))))))
 
+;; TODO: with links
 (defn item-view [app owner]
   (reify
     om/IRender
     (render [this]
-      (let [current-item  (:current-item @app-state)]
+      (let [current-item  (:current-item @app-state)
+            item (second (get (:items @app-state) (int current-item)))]
         (dom/div #js {:style (hidden (-> app :hidden :item))}
                  (dom/h1 nil "Current item")
-                 (dom/p nil (str (second (get (:items @app-state)
-                                              (int current-item))))))))))
+                 (apply dom/div nil
+                        (prepare-item item)))))))
 
 (defn event-loop [app event-chan]
   (go
@@ -149,6 +154,7 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
       (dom/div nil
                #_(dom/h1 nil (str (:text app) " " (:count state)))
                (om/build item-view app)
+               ;; TODO: Fix these lazy, should auto list?
                (dom/a #js {:href "#/notes/1"} "1")
                (dom/a #js {:href "#/notes/2"} "2")
                (dom/p nil
