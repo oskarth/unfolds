@@ -32,9 +32,9 @@
                           :visible [] ;; XXX: Bad name, visible items.
                           :hidden {:item false}
                           :current-item -1
-                          :items [[0 "Basic English is an English-based controlled language created by linguist and philosopher Charles Kay Ogden as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of regular English. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
+                          :items [[0 "Basic English is an English-based controlled language created by linguist and philosopher Charles Kay Ogden as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of [[1|regular]] English. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
 
-Ogden's Basic, and the concept of a simplified English, gained its greatest publicity just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
+Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|publicity]] just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
                                   [1 "Foobar [[asdad|krieg]] hello. This is another link [[0|zero]]."]
                                   [2 "Hello there"]]}))
 
@@ -55,6 +55,7 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
 
 (defn split-words [s] (split s #"\s+"))
 
+;; TODO: A-Z ok too, and word-spacing
 (def link-re #"\[\[([0-9]+)\|([a-z]+)\]\]")
 (defn link [href str] (dom/a #js {:href href} str))
 (defn link? [s] (if (re-find link-re s) true false))
@@ -124,7 +125,6 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
       (let [current-item  (:current-item @app-state)
             item (second (get (:items @app-state) (int current-item)))]
         (dom/div #js {:style (hidden (-> app :hidden :item))}
-                 (dom/h1 nil "Current item")
                  (apply dom/div nil
                         (prepare-item item)))))))
 
@@ -152,6 +152,7 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
     om/IRenderState
     (render-state [this {:keys [chan] :as state}]
       (dom/div nil
+               (dom/h1 nil "Unfolds")
                #_(dom/h1 nil (str (:text app) " " (:count state)))
                (om/build item-view app)
                ;; TODO: Fix these lazy, should auto list?
