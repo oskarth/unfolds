@@ -1,9 +1,12 @@
 (ns unfolds.core
   (:require-macros [cljs.core.async.macros :refer [go]]
-                   [secretary.core :refer [defroute]])
+                   [secretary.core :refer [defroute]]
+                   [cljs.core.async.macros :as asyncm :refer (go go-loop)])
   (:require [clojure.set :refer [union]]
             [clojure.string :refer [split]]
             [goog.events :as events]
+            [cljs.core.async :as async
+             :refer (<! >! put! chan sliding-buffer timeout alts!)]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <!]]
@@ -11,6 +14,9 @@
   (:import goog.History))
 
 ;; Link format: [[foo|blitz]]
+
+;; global extra channel for outer-Om comms
+ (def comm-alt (chan (sliding-buffer 1)))
 
 (secretary/set-config! :prefix "#")
 
@@ -115,19 +121,34 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
       (dom/div #js {:style (hidden (-> app :hidden :item))}
                (str (-> app :item))))))
 
+(defn event-loop [app event-chan]
+  (go
+    (while true
+      (let [foo (alts! [comm-alt event-chan])]
+      (. js/console (log "chan: ") (pr-str foo))))))
+
 (defn app-view [app owner]
   (reify
+    om/IInitState
+    (init-state [_]
+      {:chans {:event-chan (chan (sliding-buffer 1))}})
+    om/IWillMount
+    (will-mount [_]
+      (let [event-chan (om/get-state owner [:chans :event-chan])]
+        (event-loop app event-chan)))
     om/IRenderState
-    (render-state [this state]
+    (render-state [this {:keys [chan] :as state}] ;; syntax?
       (dom/div nil
                #_(dom/h1 nil (str (:text app) " " (:count state)))
-               (dom/a #js {:href "#/users"} "Users") ;;   <p><a href="#/users">Users</a></p>
+               (dom/a #js {:href "#/notes/1"} "1")
+               (dom/a #js {:href "#/notes/2"} "2")
                (dom/p nil
                       (str "Search: ")
                       (dom/input #js {:value (:search state)
                                       :type "text"
                                       :ref "search"
-                                      :onChange #(handle-search-change % owner state)})
+                                      :onChange
+                                      #(handle-search-change % owner state)})
                       (dom/button #js {:onClick #(search app owner)} "Search"))
                (dom/textarea #js
                               {:value (:text state)
@@ -137,15 +158,14 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
                (dom/button #js {:onClick #(add-item app owner)} "Add item")
                (apply dom/ul nil
                       (om/build-all visible-item-view
-                                    (filter (fn [[i _]] (in? (:visible app) i)) (:items app))))))))
+                                    (filter (fn [[i _]] (in? (:visible app) i))
+                                            (:items app))))))))
 
-;; TODO HEREATM What is dispatch supposed to do?
-;; This is buggy
+;; TODO: Put action on channel and then do something there
 (defroute "/notes/:id" {:as params}
-  (om/transact! @app-state :hidden #(assoc % :item false))
-  (om/transact! @app-state :current-item (fn [_] (:id params)))
+  #_(om/transact! @app-state :hidden #(assoc % :item false))
+  #_(om/transact! @app-state :current-item (fn [_] (:id params)))
   (js/console.log (str "Viewing item: " (:id params))))
-  
 
 (defn main []
   (om/root app-view
