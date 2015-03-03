@@ -28,15 +28,19 @@
 
 (defonce app-state (atom {:search ""
                           :word-map {"Ogden" [0]
-                                     "Foo" [1]}
+                                     "Foo" [1]} ;; populate this, oh
                           :visible [] ;; XXX: Bad name, visible items.
-                          :hidden {:item false}
+                          :hidden {:view false
+                                   :add true
+                                   :search true
+                                   :menu false}
                           :current-item -1
-                          :items [[0 "Basic English is an English-based controlled language created by linguist and philosopher Charles Kay Ogden as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of [[1|regular]] English. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
+                          :items [[0 "Welcome to Unfolds. Every entry is limited to 1000 characters. Links are created by writing [[ID|mylink]] where ID is a numeric string, and mylink is a (one) descriptive word."
+                                   1 "Basic English is an English-based controlled language created by linguist [[0|and philosopher]] Charles Kay [[1|Ogden]] as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of [[1|regular English]]. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
 
 Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|publicity]] just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
-                                  [1 "Foobar [[asdad|krieg]] hello. This is another link [[0|zero]]."]
-                                  [2 "Hello there"]]}))
+                                  [2 "Foobar [[asdad|krieg]] hello. This is another link [[0|zero]]."]
+                                  [3 "Hello there"]]}))
 
 (def id-atom (atom -1))
 (swap! id-atom inc) ;; first item, 0
@@ -55,8 +59,9 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
 
 (defn split-words [s] (split s #"\s+"))
 
-;; TODO: A-Z ok too, and word-spacing
-(def link-re #"\[\[([0-9]+)\|([a-z]+)\]\]")
+;; TODO: word-spacing (jsut add " " after 9)
+;; Doesn't work because of split-words...
+(def link-re #"\[\[([0-9]+)\|([A-Za-z0-9]+)\]\]")
 (defn link [href str] (dom/a #js {:href href} str))
 (defn link? [s] (if (re-find link-re s) true false))
 (defn get-href [s] (str (nth (re-find link-re s) 1)))
@@ -124,7 +129,7 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
     (render [this]
       (let [current-item  (:current-item @app-state)
             item (second (get (:items @app-state) (int current-item)))]
-        (dom/div #js {:style (hidden (-> app :hidden :item))}
+        (dom/div #js {:style (hidden (-> app :hidden :view))}
                  (apply dom/div nil
                         (prepare-item item)))))))
 
@@ -135,9 +140,24 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
         (. js/console (log "tag: " (pr-str tag)))
         (. js/console (log "value: " (pr-str value)))
 
+        ;; when tag is add or search, do that
         ;; TODO: Generalize.
-        (om/transact! app :hidden #(assoc % :item false))
-        (om/transact! app :current-item (fn [_] (:id value)))))))
+        (condp keyword-identical? tag
+          ;; TODO: hide-all function
+          :notes ;; more like view?
+          (do (om/transact! app :hidden #(assoc % :add true))
+              (om/transact! app :hidden #(assoc % :search true))
+              (om/transact! app :hidden #(assoc % :view false))
+              (om/transact! app :current-item (fn [_] (:id value))))
+          :add
+          (do (om/transact! app :hidden #(assoc % :view true))
+              (om/transact! app :hidden #(assoc % :search true))
+              (om/transact! app :hidden #(assoc % :add false)))
+          :search
+          (do (om/transact! app :hidden #(assoc % :view true))
+              (om/transact! app :hidden #(assoc % :add true))
+              (om/transact! app :hidden #(assoc % :search false)))
+          )))))
 
 
 (defn app-view [app owner]
@@ -152,34 +172,56 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
     om/IRenderState
     (render-state [this {:keys [chan] :as state}]
       (dom/div nil
-               (dom/h1 nil "Unfolds")
-               #_(dom/h1 nil (str (:text app) " " (:count state)))
+               ;; TODO: Make these into four separate components
+
+               ;; Menu bar
+               (dom/div #js {:style (hidden (-> app :hidden :menu))}
+                        (dom/p nil (dom/h1 nil "Unfolds")
+                               (dom/span nil "  ")
+                               (dom/a #js {:href "#/add"} "add") " "
+                               (dom/a #js {:href "#/search"} "search") " "
+                               (dom/a #js {:href "#/about"} "about") " "))
+
+               ;; Search
+               (dom/div #js {:style (hidden (-> app :hidden :search))}
+                        (dom/p nil
+                               (str "Search: ")
+                               (dom/input #js {:value (:search state)
+                                               :type "text"
+                                               :ref "search"
+                                               :onChange
+                                               #(handle-search-change % owner state)})
+                               (dom/button #js {:onClick #(search app owner)} "Search"))
+                        (apply dom/ul nil
+                               (om/build-all visible-item-view
+                                             (filter (fn [[i _]] (in? (:visible app) i))
+                                                     (:items app)))))
+
+               ;; View
                (om/build item-view app)
-               ;; TODO: Fix these lazy, should auto list?
-               (dom/a #js {:href "#/notes/1"} "1")
-               (dom/a #js {:href "#/notes/2"} "2")
-               (dom/p nil
-                      (str "Search: ")
-                      (dom/input #js {:value (:search state)
-                                      :type "text"
-                                      :ref "search"
-                                      :onChange
-                                      #(handle-search-change % owner state)})
-                      (dom/button #js {:onClick #(search app owner)} "Search"))
-               (dom/textarea #js
-                              {:value (:text state)
-                               :ref "new-item"
-                               :rows "12" :cols "80"
-                               :onChange #(handle-item-change % owner state)})
-               (dom/button #js {:onClick #(add-item app owner)} "Add item")
-               (apply dom/ul nil
-                      (om/build-all visible-item-view
-                                    (filter (fn [[i _]] (in? (:visible app) i))
-                                            (:items app))))))))
+
+               ;; Add
+               (dom/div #js {:style (hidden (-> app :hidden :add))}
+                        (dom/textarea #js
+                                      {:value (:text state)
+                                       :ref "new-item"
+                                       :rows "12" :cols "80"
+                                       :onChange #(handle-item-change % owner state)})
+                        (dom/button #js {:onClick #(add-item app owner)} "Add item"))
+               ))))
 
 (defroute "/notes/:id" {:as params}
   (put! comm-alt {:tag :notes
                   :value {:id (:id params)}}))
+
+(defroute "/add" {}
+  (put! comm-alt {:tag :add :value {}}))
+
+(defroute "/search" {}
+  (put! comm-alt {:tag :search :value {}}))
+
+(defroute "/about" {}
+  (put! comm-alt {:tag :notes :value {:id 0}}))
 
 (defn main []
   (om/root app-view
