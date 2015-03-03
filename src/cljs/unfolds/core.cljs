@@ -124,8 +124,14 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
 (defn event-loop [app event-chan]
   (go
     (while true
-      (let [foo (alts! [comm-alt event-chan])]
-      (. js/console (log "chan: ") (pr-str foo))))))
+      (let [[{:keys [tag value]} _] (alts! [comm-alt event-chan])]
+        (. js/console (log "tag: " (pr-str tag)))
+        (. js/console (log "value: " (pr-str value)))
+
+        ;; TODO: Generalize.
+        (om/transact! app :hidden #(assoc % :item false))
+        (om/transact! app :current-item (fn [_] (:id value)))))))
+
 
 (defn app-view [app owner]
   (reify
@@ -137,7 +143,7 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
       (let [event-chan (om/get-state owner [:chans :event-chan])]
         (event-loop app event-chan)))
     om/IRenderState
-    (render-state [this {:keys [chan] :as state}] ;; syntax?
+    (render-state [this {:keys [chan] :as state}]
       (dom/div nil
                #_(dom/h1 nil (str (:text app) " " (:count state)))
                (dom/a #js {:href "#/notes/1"} "1")
@@ -161,11 +167,9 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest publ
                                     (filter (fn [[i _]] (in? (:visible app) i))
                                             (:items app))))))))
 
-;; TODO: Put action on channel and then do something there
 (defroute "/notes/:id" {:as params}
-  #_(om/transact! @app-state :hidden #(assoc % :item false))
-  #_(om/transact! @app-state :current-item (fn [_] (:id params)))
-  (js/console.log (str "Viewing item: " (:id params))))
+  (put! comm-alt {:tag :notes
+                  :value {:id (:id params)}}))
 
 (defn main []
   (om/root app-view
