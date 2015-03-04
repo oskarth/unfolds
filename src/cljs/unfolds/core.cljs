@@ -20,6 +20,9 @@
 
 (secretary/set-config! :prefix "#")
 
+;; How is it dispatching if URL isn't updated? b0rked.
+;; (set! (.-location js/window) "/path")
+
 (let [history (History.)]
   (events/listen history "navigate"
                  (fn [event]
@@ -89,11 +92,8 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
       (om/transact! app :word-map #(merge-with union % (make-word-map new-item)))
       (om/transact! app :items #(conj % new-item))
       ;; TODO: transact to server
-      ;; XXX: Why doesn't it update the url field? Manually?
       (secretary/dispatch! (str "#/notes/" (first new-item)))
-      #_(put! comm-alt {:tag :notes
-                        :value {:id (first new-item)}}))))
-;; show item
+      (set! (.-location js/window) (str "/#notes/" (first new-item))))))
 
 (defn search [app owner]
   (let [search (-> (om/get-node owner "search")
