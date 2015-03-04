@@ -15,8 +15,26 @@
             [secretary.core :as secretary])
   (:import goog.History))
 
-;; Link format: [[foo|blitz]]
+;; From http://adambard.com/blog/a-simple-clojurescript-app/
 
+(defn keywordify [m]
+  (cond
+   (map? m) (into {} (for [[k v] m] [(keyword k) (keywordify v)]))
+   (coll? m) (vec (map keywordify m))
+   :else m))
+
+(defn fetch [k default]
+  (let [item (.getItem js/localStorage k)]
+    (if  (and item (not= item "null")) ;; "null" is true, fuck you js.
+      (-> (.getItem js/localStorage k)
+          (or (js-obj))
+          (js/JSON.parse)
+          (js->clj)
+          (keywordify))
+      default)))
+
+(defn store [k obj]
+  (.setItem js/localStorage k (js/JSON.stringify (clj->js obj))))
 
 (def base-url (atom ""))
 
@@ -42,7 +60,21 @@
                    (secretary/dispatch! (.-token event))))
   (.setEnabled history true))
 
-(defonce app-state (atom {:search ""
+(def default-init-state
+  {:search ""
+   :word-map {}
+   :visible [] ;; XXX: Bad name, visible items.
+   :hidden {:view false
+            :add true
+            :search true
+            :menu false}
+   :current-item 0
+   :items []})
+
+(defonce app-state
+  (atom (fetch "unfolds" default-init-state)))
+
+#_(defonce app-state (atom {:search ""
                           :word-map {"Ogden" [0]
                                      "Foo" [1]} ;; populate this, oh
                           :visible [] ;; XXX: Bad name, visible items.
@@ -232,6 +264,8 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
           (if value (method app value) (method app)))))))
 
 (defn app-view [app owner]
+  ;; Can this be here?
+  (store "unfolds" app) ;; too much?
   (reify
     om/IInitState
     (init-state [_]
@@ -244,7 +278,7 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
     (render-state [this {:keys [chan] :as state}]
       (dom/div nil
                ;; TODO: Make these into four separate components
-
+               
                ;; Menu bar
                (dom/div #js {:style (hidden (-> app :hidden :menu))}
                         (dom/p nil (dom/h1 nil "Unfolds")
