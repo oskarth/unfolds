@@ -2,7 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go]]
                    [secretary.core :refer [defroute]]
                    [cljs.core.async.macros :as asyncm :refer (go go-loop)])
-  (:require [clojure.set :refer [union]]
+  (:require [clojure.set :refer [union]] ;; rm
             [clojure.string :refer [split]]
             [goog.events :as events]
             [cljs.core.async :as async
@@ -74,29 +74,6 @@
 (defonce app-state
   (atom (fetch "unfolds" default-init-state)))
 
-#_(defonce app-state (atom {:search ""
-                          :word-map {"Ogden" [0]
-                                     "Foo" [1]} ;; populate this, oh
-                          :visible [] ;; XXX: Bad name, visible items.
-                          :hidden {:view false
-                                   :add true
-                                   :search true
-                                   :menu false}
-                          :current-item 0
-                          :items []
-                          #_:items #_[[0 "Welcome to Unfolds. Every entry is limited to 1000 characters. Links are created by writing [[ID|mylink]] where ID is a numeric string, and mylink is a (one) descriptive word."
-                                   1 "Basic English is an English-based controlled language created by linguist [[0|and philosopher]] Charles Kay [[1|Ogden]] as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of [[1|regular English]]. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
-
-Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|publicity]] just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
-                                  [2 "Foobar [[asdad|krieg]] hello. This is another link [[0|zero]]."]
-                                  [3 "Hello there"]]}))
-
-;; TODO: remove this
-(def id-atom (atom -1))
-(swap! id-atom inc) ;; first item, 0
-(swap! id-atom inc) ;; second item, 1
-(swap! id-atom inc) ;; third item, 2
-
 (defn in?
   "true if seq contains elm"
   [seq elm]
@@ -121,12 +98,6 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
   (if (link? x)
     (link (str "/#/notes/" (get-href x)) (get-title x))
     (str " " x " ")))
-
-;; Let's just start with all the words. Leaving freqs in.
-(defn make-word-map [[id str]]
-  (zipmap (map first
-               (frequencies (split-words str)))
-          (repeat [id])))
 
 (defn prepare-item [s]
   (vec (map str-or-link (split-words s))))
@@ -212,9 +183,13 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
 
 (defn add-note-ok! [app resp]
   (let [id (count (:items resp))] ;; XXX: This is the last one, not very robust.
+    (om/transact! app :word-map #(:word-map resp))
     (om/transact! app :items #(:items resp))
 
+    ;; when you click search, return word-map
+    
   ;; TODO: what do about word-map? Can't do it without id
+  ;; Make one when adding
   ;;(om/transact! app :word-map #(merge-with union % (make-word-map FOOnew-item)))
 
   (set! (.-location js/window) (str "/#notes/" id))
@@ -301,8 +276,11 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
                                (om/build-all visible-item-view
                                              (filter (fn [[i _]] (in? (:visible app) i))
                                                      (:items app))))
-                        (dom/p nil "Indexed words: "
-                               (str (map first (:word-map @app-state))))
+                        (dom/p nil
+                               (dom/h2 nil "Indexed terms ")
+                               (dom/br nil "")
+                               (apply str (interpose ", " (map first (:word-map @app-state))))
+                               ".")
                         )
 
                ;; View

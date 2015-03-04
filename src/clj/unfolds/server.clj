@@ -1,6 +1,8 @@
 (ns unfolds.server
   (:require [clojure.java.io :as io]
             [unfolds.dev :refer [is-dev? inject-devmode-html browser-repl start-figwheel]]
+            [clojure.set :refer [union]]
+            [clojure.string :refer [split]]
             [compojure.core :refer [GET POST defroutes]]
             [compojure.route :refer [resources]]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -21,7 +23,8 @@
   (println msg ": " arg)
   arg)
 
-(def db (atom {:items []}))
+(def db (atom {:items []
+               :word-map {}}))
 
 (def counter (atom 0)) ;; when using count anyway
 
@@ -46,13 +49,23 @@
         (catch [:status 500] {:keys [message]}
           (str {:status "error" :message message}))))
 
+(defn split-words [s] (split s #"\s+"))
+
+;; Let's just start with all the words. Leaving freqs in.
+(defn make-word-map [[id str]]
+  (zipmap (map first
+               (frequencies (split-words str)))
+          (repeat [id])))
+
 ;; TODO: Atm return whole db, just items or just item?
 ;; Whole items seems ok for now. Expensive eventually ;)
 (defn add-note [params]
-   (let [newid (swap! counter inc)
-         newdb (swap! db update-in [:items] conj [newid (:text params)])]
-     (log "add-note"
-          (str {:status "ok" :message newdb}))))
+  (swap! counter inc)
+  (swap! db update-in [:items] conj [@counter (:text params)])
+  (swap! db update-in [:word-map]
+         #(merge-with union % (make-word-map (last (:items @db)))))
+  (log "add-note"
+       (str {:status "ok" :message @db})))
 
 (defroutes routes
   (resources "/")
