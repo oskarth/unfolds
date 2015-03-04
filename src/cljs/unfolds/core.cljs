@@ -64,7 +64,8 @@
   {:search ""
    :word-map {}
    :visible [] ;; XXX: Bad name, visible items.
-   :hidden {:view false
+   :hidden {:view true
+            :about false
             :add true
             :search true
             :menu false}
@@ -161,6 +162,7 @@
 ;; more like view note?
 (defn view-note [app value]
   (debug "view-note " value)
+  (om/transact! app :hidden #(assoc % :about true))
   (om/transact! app :hidden #(assoc % :add true))
   (om/transact! app :hidden #(assoc % :search true))
   (om/transact! app :hidden #(assoc % :view false))
@@ -168,15 +170,24 @@
 
 (defn view-add [app]
   (debug "view-add" "")
+  (om/transact! app :hidden #(assoc % :about true))
   (om/transact! app :hidden #(assoc % :view true))
   (om/transact! app :hidden #(assoc % :search true))
   (om/transact! app :hidden #(assoc % :add false)))
 
 (defn view-search [app]
   (debug "search " "")
+  (om/transact! app :hidden #(assoc % :about true))
   (om/transact! app :hidden #(assoc % :view true))
   (om/transact! app :hidden #(assoc % :add true))
   (om/transact! app :hidden #(assoc % :search false)))
+
+(defn view-about [app]
+  (debug "about " "")
+  (om/transact! app :hidden #(assoc % :about false))
+  (om/transact! app :hidden #(assoc % :view true))
+  (om/transact! app :hidden #(assoc % :add true))
+  (om/transact! app :hidden #(assoc % :search true)))
 
 (defn default-err-fn [app msg]
   (debug "ERROR: " msg))
@@ -206,6 +217,7 @@
   {:view-add    {:type :nav  :method view-add}
    :view-note   {:type :nav  :method view-note}
    :view-search {:type :nav  :method view-search}
+   :view-about  {:type :nav  :method view-about}
    :add-note!   {:type :ajax
                  :method POST
                  :uri-fn #(str @base-url "/note/")
@@ -256,11 +268,18 @@
                
                ;; Menu bar
                (dom/div #js {:style (hidden (-> app :hidden :menu))}
-                        (dom/p nil (dom/h1 nil "Unfolds")
+                        (dom/p nil (dom/h1 nil
+                                           (dom/a #js {:href "" :className "none"
+                                                       :text-decoration "none"} "Unfolds"))
                                (dom/span nil "  ")
                                (dom/a #js {:href "#/add"} "add") " "
                                (dom/a #js {:href "#/search"} "search") " "
-                               (dom/a #js {:href "#/about"} "about") " "))
+                               #_(dom/a #js {:href "#/about"} "about") " "))
+
+               (dom/div #js {:style (hidden (-> app :hidden :about))}
+                        (dom/p nil "Welcome. Try adding a note. Links
+                        are written as [[ID|TITLE]] where ID is the id
+                        of that note, and TITLE is a one word."))
 
                ;; Search
                (dom/div #js {:style (hidden (-> app :hidden :search))}
@@ -299,14 +318,15 @@
                                     "Add item"))
                ))))
 
+(defroute "/" {:as params}
+  (put! comm-alt {:tag :view-about :value {}}))
+
 (defroute "/notes/:id" {:as params}
   (put! comm-alt {:tag :view-note :value {:id (:id params)}}))
 
 (defroute "/add" {} (put! comm-alt {:tag :view-add :value {}}))
 
 (defroute "/search" {}(put! comm-alt {:tag :view-search :value {}}))
-
-(defroute "/about" {} (put! comm-alt {:tag :view-note :value {:id 0}}))
 
 (defn main []
   (om/root app-view

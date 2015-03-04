@@ -14,3 +14,11 @@ h2 {
     font-size: 15px;
     display: inline;
 }
+
+a.none {
+    text-decoration: none;
+    color: black;
+}
+
+a:visited.none { color: black; }
+
