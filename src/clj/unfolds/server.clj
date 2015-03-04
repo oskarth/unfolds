@@ -64,6 +64,7 @@
   (swap! db update-in [:items] conj [@counter (:text params)])
   (swap! db update-in [:word-map]
          #(merge-with union % (make-word-map (last (:items @db)))))
+  (log "saving data" (save-data))
   (log "add-note"
        (str {:status "ok" :message @db})))
 
