@@ -10,10 +10,20 @@
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <!]]
+            [cljs.reader :as reader]
+            [ajax.core :refer (GET PUT POST)]
             [secretary.core :as secretary])
   (:import goog.History))
 
 ;; Link format: [[foo|blitz]]
+
+
+(def base-url (atom ""))
+
+(defn set-base-url! []
+  (swap! base-url (fn [_] (str (.-origin (.-location js/window))))))
+
+(set-base-url!)
 
 (defn debug [s x]
   (. js/console (log s (pr-str x))))
@@ -40,14 +50,16 @@
                                    :add true
                                    :search true
                                    :menu false}
-                          :current-item -1
-                          :items [[0 "Welcome to Unfolds. Every entry is limited to 1000 characters. Links are created by writing [[ID|mylink]] where ID is a numeric string, and mylink is a (one) descriptive word."
+                          :current-item 0
+                          :items []
+                          #_:items #_[[0 "Welcome to Unfolds. Every entry is limited to 1000 characters. Links are created by writing [[ID|mylink]] where ID is a numeric string, and mylink is a (one) descriptive word."
                                    1 "Basic English is an English-based controlled language created by linguist [[0|and philosopher]] Charles Kay [[1|Ogden]] as an international auxiliary language, and as an aid for teaching English as a second language. Basic English is, in essence, a simplified subset of [[1|regular English]]. It was presented in Ogden's book Basic English: A General Introduction with Rules and Grammar (1930).
 
 Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|publicity]] just after the Allied victory in World War II as a means for world peace. Although Basic English was not built into a program, similar simplifications have been devised for various international uses. Ogden's associate I. A. Richards promoted its use in schools in China. More recently, it has influenced the creation of Voice of America's Special English for news broadcasting, and Simplified English, another English-based controlled language designed to write technical manuals."]
                                   [2 "Foobar [[asdad|krieg]] hello. This is another link [[0|zero]]."]
                                   [3 "Hello there"]]}))
 
+;; TODO: remove this
 (def id-atom (atom -1))
 (swap! id-atom inc) ;; first item, 0
 (swap! id-atom inc) ;; second item, 1
@@ -88,19 +100,10 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
   (vec (map str-or-link (split-words s))))
 
 (defn add-item [app owner]
-  (let [new-item-text (-> (om/get-node owner "new-item")
-                          .-value)
-        new-item [(swap! id-atom inc) new-item-text]]
+  (let [new-item (-> (om/get-node owner "new-item")
+                          .-value)]
     (when new-item
-      ;; TODO: transact to server before stuff adding, no?
-      ;; id should be returned, not this swap! id-atom biz
-      ;; or use uuid gen on client, but not well-ordered then
-      (put! comm-alt {:tag :add-note! :value new-item})
-
-      (om/transact! app :word-map #(merge-with union % (make-word-map new-item)))
-      (om/transact! app :items #(conj % new-item))
-      (secretary/dispatch! (str "#/notes/" (first new-item)))
-      (set! (.-location js/window) (str "/#notes/" (first new-item))))))
+      (put! comm-alt {:tag :add-note! :value {:text new-item}}))))
 
 (defn search [app owner]
   (let [search (-> (om/get-node owner "search")
@@ -143,10 +146,11 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
     om/IRender
     (render [this]
       (let [current-item  (:current-item @app-state)
-            item (second (get (:items @app-state) (int current-item)))]
+             ;; XXX: -1 because of count idx
+            item (second (get (:items @app-state) (- (int current-item) 1)))]
         (dom/div #js {:style (hidden (-> app :hidden :view))}
                  (apply dom/div nil
-                        (prepare-item item)))))))
+                        (prepare-item item))))))) ;; hm
 
 ;; TODO: hide-all!
 ;; TODO: hide!
@@ -158,12 +162,6 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
   (om/transact! app :hidden #(assoc % :search true))
   (om/transact! app :hidden #(assoc % :view false))
   (om/transact! app :current-item (fn [_] (:id value))))
-
-(defn add-note! [app]
-  (debug "add-note!" "")
-  (om/transact! app :hidden #(assoc % :view true))
-  (om/transact! app :hidden #(assoc % :search true))
-  (om/transact! app :hidden #(assoc % :add false)))
 
 (defn view-add [app]
   (debug "view-add" "")
@@ -177,14 +175,36 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
   (om/transact! app :hidden #(assoc % :add true))
   (om/transact! app :hidden #(assoc % :search false)))
 
+(defn default-err-fn [app msg]
+  (debug "ERROR: " msg))
+
+(defn add-note-ok! [app resp]
+  (let [id (count (:items resp))] ;; XXX: This is the last one, not very robust.
+    (om/transact! app :items #(:items resp))
+
+  ;; TODO: what do about word-map? Can't do it without id
+  ;;(om/transact! app :word-map #(merge-with union % (make-word-map FOOnew-item)))
+
+  (set! (.-location js/window) (str "/#notes/" id))
+  (secretary/dispatch! (str "#/notes/" id))
+  ;;(om/transact! app :hidden #(assoc % :view false))
+  ;;(om/transact! app :hidden #(assoc % :search true))
+  ;; (om/transact! app :hidden #(assoc % :add true))
+  ))
+
 ;; ! if side-effect, ie only for add I think?
 ;; but we also already have search and add fn
 ;; time for namespaces
 (def ops-table
-  {:add-note! {:type :ajax :func add-note!}
-   :view-add {:type :nav :func view-add}
-   :view-note {:type :nav :func view-note}
-   :view-search {:type :nav :func view-search}})
+  {:view-add    {:type :nav  :method view-add}
+   :view-note   {:type :nav  :method view-note}
+   :view-search {:type :nav  :method view-search}
+   :add-note!   {:type :ajax
+                 :method POST
+                 :uri-fn #(str @base-url "/note/")
+                 :ok-fn add-note-ok!
+                 :err-fn default-err-fn}
+   })
 
 (defn get-op [tag] (get ops-table tag))
 
@@ -192,17 +212,24 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
   (go
     (while true
       (let [[{:keys [tag value]} _] (alts! [comm-alt event-chan])
-            {:keys [type func] :as ops} (get-op tag)]
+            {:keys [type method uri-fn ok-fn err-fn] :as ops} (get-op tag)]
         (. js/console (log "event tag: " (pr-str tag)))
         (. js/console (log "event val: " (pr-str value)))
         (condp keyword-identical? type
           :ajax
-          (do
-            (. js/console (log "AJAX: " (pr-str value)))
-            )
+          (method (uri-fn)
+                    {:params value
+                     :handler
+                     (fn [body]
+                       (let [{:keys [status message]} (reader/read-string body)]
+                         (if (= status "ok")
+                           (ok-fn app message)
+                           (err-fn app message))))
+                     :timeout 20000
+                     :error-handler
+                     (fn [err] (prn (str "error: " err)))})
           :nav
-          (if value (func app value) (func app)))))))
-
+          (if value (method app value) (method app)))))))
 
 (defn app-view [app owner]
   (reify

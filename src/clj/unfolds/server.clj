@@ -1,20 +1,31 @@
 (ns unfolds.server
   (:require [clojure.java.io :as io]
             [unfolds.dev :refer [is-dev? inject-devmode-html browser-repl start-figwheel]]
-            [compojure.core :refer [GET defroutes]]
+            [compojure.core :refer [GET POST defroutes]]
             [compojure.route :refer [resources]]
-            [compojure.handler :refer [api]]
+            [slingshot.slingshot :refer [try+ throw+]]
             [net.cgrand.enlive-html :refer [deftemplate]]
             [ring.middleware.reload :as reload]
             [environ.core :refer [env]]
-            [ring.adapter.jetty :refer [run-jetty]]))
+            [ring.adapter.jetty :refer [run-jetty]]
+            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+            [ring.middleware.nested-params :refer [wrap-nested-params]]
+            [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.edn :refer [wrap-edn-params]]))
 
 ;; database
 ;; when we get an incoming request, shoot off whole load-data
 ;; when we get a post req, save-data
 
-(def db (atom {}))
+(defn log [msg arg]
+  (println msg ": " arg)
+  arg)
 
+(def db (atom {:items []}))
+
+(def counter (atom 0)) ;; when using count anyway
+
+;; TODO: periodically do this
 (defn save-data []
   (spit "data" (prn-str @db)))
 
@@ -24,10 +35,37 @@
 (deftemplate page
   (io/resource "index.html") [] [:body] (if is-dev? inject-devmode-html identity))
 
+(defn wrap-errors [fn params]
+  (try+ (fn params)
+        (catch [:status 400] {:keys [message]}
+          (str {:status "error" :message message}))
+        (catch [:status 401] {:keys [message]}
+          (str {:status "error" :message message}))
+        (catch [:status 404] {:keys [message]}
+          (str {:status "error" :message message}))
+        (catch [:status 500] {:keys [message]}
+          (str {:status "error" :message message}))))
+
+;; TODO: Atm return whole db, just items or just item?
+;; Whole items seems ok for now. Expensive eventually ;)
+(defn add-note [params]
+   (let [newid (swap! counter inc)
+         newdb (swap! db update-in [:items] conj [newid (:text params)])]
+     (log "add-note"
+          (str {:status "ok" :message newdb}))))
+
 (defroutes routes
   (resources "/")
   (resources "/react" {:root "react"})
+  (POST "/note/" {params :params} (wrap-errors add-note params))
   (GET "/*" req (page)))
+
+(defn api [routes]
+  (-> routes
+      wrap-keyword-params
+      wrap-nested-params
+      wrap-params
+      wrap-edn-params))
 
 (def http-handler
   (if is-dev?
