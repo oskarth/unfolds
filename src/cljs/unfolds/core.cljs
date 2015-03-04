@@ -15,6 +15,9 @@
 
 ;; Link format: [[foo|blitz]]
 
+(defn debug [s x]
+  (. js/console (log s (pr-str x))))
+
 ;; global extra channel for outer-Om comms
  (def comm-alt (chan (sliding-buffer 1)))
 
@@ -89,9 +92,13 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
                           .-value)
         new-item [(swap! id-atom inc) new-item-text]]
     (when new-item
+      ;; TODO: transact to server before stuff adding, no?
+      ;; id should be returned, not this swap! id-atom biz
+      ;; or use uuid gen on client, but not well-ordered then
+      (put! comm-alt {:tag :add-note! :value new-item})
+
       (om/transact! app :word-map #(merge-with union % (make-word-map new-item)))
       (om/transact! app :items #(conj % new-item))
-      ;; TODO: transact to server
       (secretary/dispatch! (str "#/notes/" (first new-item)))
       (set! (.-location js/window) (str "/#notes/" (first new-item))))))
 
@@ -141,31 +148,60 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
                  (apply dom/div nil
                         (prepare-item item)))))))
 
+;; TODO: hide-all!
+;; TODO: hide!
+;; what is value? takes one
+;; more like view note?
+(defn view-note [app value]
+  (debug "view-note " value)
+  (om/transact! app :hidden #(assoc % :add true))
+  (om/transact! app :hidden #(assoc % :search true))
+  (om/transact! app :hidden #(assoc % :view false))
+  (om/transact! app :current-item (fn [_] (:id value))))
+
+(defn add-note! [app]
+  (debug "add-note!" "")
+  (om/transact! app :hidden #(assoc % :view true))
+  (om/transact! app :hidden #(assoc % :search true))
+  (om/transact! app :hidden #(assoc % :add false)))
+
+(defn view-add [app]
+  (debug "view-add" "")
+  (om/transact! app :hidden #(assoc % :view true))
+  (om/transact! app :hidden #(assoc % :search true))
+  (om/transact! app :hidden #(assoc % :add false)))
+
+(defn view-search [app]
+  (debug "search " "")
+  (om/transact! app :hidden #(assoc % :view true))
+  (om/transact! app :hidden #(assoc % :add true))
+  (om/transact! app :hidden #(assoc % :search false)))
+
+;; ! if side-effect, ie only for add I think?
+;; but we also already have search and add fn
+;; time for namespaces
+(def ops-table
+  {:add-note! {:type :ajax :func add-note!}
+   :view-add {:type :nav :func view-add}
+   :view-note {:type :nav :func view-note}
+   :view-search {:type :nav :func view-search}})
+
+(defn get-op [tag] (get ops-table tag))
+
 (defn event-loop [app event-chan]
   (go
     (while true
-      (let [[{:keys [tag value]} _] (alts! [comm-alt event-chan])]
-        (. js/console (log "tag: " (pr-str tag)))
-        (. js/console (log "value: " (pr-str value)))
-
-        ;; when tag is add or search, do that
-        ;; TODO: Generalize.
-        (condp keyword-identical? tag
-          ;; TODO: hide-all function
-          :notes ;; more like view?
-          (do (om/transact! app :hidden #(assoc % :add true))
-              (om/transact! app :hidden #(assoc % :search true))
-              (om/transact! app :hidden #(assoc % :view false))
-              (om/transact! app :current-item (fn [_] (:id value))))
-          :add
-          (do (om/transact! app :hidden #(assoc % :view true))
-              (om/transact! app :hidden #(assoc % :search true))
-              (om/transact! app :hidden #(assoc % :add false)))
-          :search
-          (do (om/transact! app :hidden #(assoc % :view true))
-              (om/transact! app :hidden #(assoc % :add true))
-              (om/transact! app :hidden #(assoc % :search false)))
-          )))))
+      (let [[{:keys [tag value]} _] (alts! [comm-alt event-chan])
+            {:keys [type func] :as ops} (get-op tag)]
+        (. js/console (log "event tag: " (pr-str tag)))
+        (. js/console (log "event val: " (pr-str value)))
+        (condp keyword-identical? type
+          :ajax
+          (do
+            (. js/console (log "AJAX: " (pr-str value)))
+            )
+          :nav
+          (if value (func app value) (func app)))))))
 
 
 (defn app-view [app owner]
@@ -218,22 +254,20 @@ Ogden's Basic, and the concept of a simplified English, gained its greatest [[2|
                                       {:value (:text state)
                                        :ref "new-item"
                                        :rows "12" :cols "80"
-                                       :onChange #(handle-item-change % owner state)})
-                        (dom/button #js {:onClick #(add-item app owner)} "Add item"))
+                                       :onChange
+                                       #(handle-item-change % owner state)})
+                        (dom/button #js {:onClick #(add-item app owner)}
+                                    "Add item"))
                ))))
 
 (defroute "/notes/:id" {:as params}
-  (put! comm-alt {:tag :notes
-                  :value {:id (:id params)}}))
+  (put! comm-alt {:tag :view-note :value {:id (:id params)}}))
 
-(defroute "/add" {}
-  (put! comm-alt {:tag :add :value {}}))
+(defroute "/add" {} (put! comm-alt {:tag :view-add :value {}}))
 
-(defroute "/search" {}
-  (put! comm-alt {:tag :search :value {}}))
+(defroute "/search" {}(put! comm-alt {:tag :view-search :value {}}))
 
-(defroute "/about" {}
-  (put! comm-alt {:tag :notes :value {:id 0}}))
+(defroute "/about" {} (put! comm-alt {:tag :view-note :value {:id 0}}))
 
 (defn main []
   (om/root app-view
