@@ -12,6 +12,7 @@
                  [compojure "1.2.0"]
                  [cljs-ajax "0.3.10"]
                  [fogus/ring-edn "0.2.0"]
+                 [ring-transit "0.1.3"]
                  [enlive "1.1.5"]
                  [secretary "1.2.1"]
                  [om "0.7.3"]

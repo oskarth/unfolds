@@ -10,6 +10,8 @@
             [ring.middleware.reload :as reload]
             [environ.core :refer [env]]
             [ring.adapter.jetty :refer [run-jetty]]
+            [ring.util.response :only [response]]
+            [ring.middleware.transit :only [wrap-transit-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.nested-params :refer [wrap-nested-params]]
             [ring.middleware.params :refer [wrap-params]]
@@ -76,9 +78,9 @@
 
 (defn api [routes]
   (-> routes
-      wrap-keyword-params
-      wrap-nested-params
-      wrap-params
+      ;;wrap-keyword-params
+      ;;wrap-nested-params
+      ;;wrap-params
       wrap-edn-params))
 
 (def http-handler

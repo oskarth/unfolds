@@ -237,7 +237,8 @@
         (condp keyword-identical? type
           :ajax
           (method (uri-fn)
-                    {:params value
+                  {:params value
+                   :format :edn
                      :handler
                      (fn [body]
                        (let [{:keys [status message]} (reader/read-string body)]
