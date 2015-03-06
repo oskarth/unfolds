@@ -11,6 +11,7 @@
                  [ring "1.3.1"]
                  [compojure "1.2.0"]
                  [cljs-ajax "0.3.10"]
+                 [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [fogus/ring-edn "0.2.0"]
                  [ring-transit "0.1.3"]
                  [enlive "1.1.5"]

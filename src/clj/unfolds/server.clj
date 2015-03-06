@@ -1,5 +1,6 @@
 (ns unfolds.server
-  (:require [clojure.java.io :as io]
+  (:require [unfolds.util :as util]
+            [clojure.java.io :as io]
             [unfolds.dev :refer [is-dev? inject-devmode-html browser-repl start-figwheel]]
             [clojure.set :refer [union]]
             [clojure.string :refer [split]]
@@ -8,6 +9,8 @@
             [slingshot.slingshot :refer [try+ throw+]]
             [net.cgrand.enlive-html :refer [deftemplate]]
             [ring.middleware.reload :as reload]
+            [datomic.api :as d]
+            [clojure.edn :as edn]
             [environ.core :refer [env]]
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.util.response :only [response]]
@@ -17,13 +20,62 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.edn :refer [wrap-edn-params]]))
 
-;; database
-;; when we get an incoming request, shoot off whole load-data
-;; when we get a post req, save-data
+(defn gen-uuid [] (str (java.util.UUID/randomUUID)))
+
+(def conn (util/get-conn))
+
+(defn generate-response [data & [status]]
+  {:status (or status 200)
+   :headers {"Content-Type" "application/edn"}
+   :body (pr-str data)})
+
+(defn get-item-by-id [id]
+  (ffirst
+   (d/q '[:find (pull ?i [*])
+          :in $ ?id
+          :where [?i :item/id ?id]]
+        (d/db conn)
+        id)))
+
+;; TODO: search-title and search-text at the same time?
+
+;; remember to do ffirst
+(defn search-title [subs]
+  (d/q '[:find (pull ?i [*])
+         :in $ ?subs
+         :where
+         [(fulltext $ :item/title ?subs) [[?i]]]]
+       (d/db conn)
+       subs))
+
+(defn search-text [subs]
+  (d/q '[:find (pull ?i [*])
+         :in $ ?subs
+         :where
+         [(fulltext $ :item/text ?subs) [[?i]]]]
+       (d/db conn)
+       subs))
+
+;; XXX: No check if params are valid (str, <1k chars).
+(defn add-item [params]
+  (let [title (:item/title params)
+        text  (:item/text params)]
+    (d/transact conn
+                [{:item/title title
+                  :item/text text
+                  :item/id  (gen-uuid)
+                  :db/id (d/tempid :db.part/user)}])
+    (generate-response {:status :ok})))
 
 (defn log [msg arg]
   (println msg ": " arg)
   arg)
+
+
+;; OLD
+;; database
+;; when we get an incoming request, shoot off whole load-data
+;; when we get a post req, save-data
 
 (def db (atom {:items []
                :word-map {}}))

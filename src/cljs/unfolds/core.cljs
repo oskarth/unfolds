@@ -196,19 +196,8 @@
   (let [id (count (:items resp))] ;; XXX: This is the last one, not very robust.
     (om/transact! app :word-map #(:word-map resp))
     (om/transact! app :items #(:items resp))
-
-    ;; when you click search, return word-map
-    
-  ;; TODO: what do about word-map? Can't do it without id
-  ;; Make one when adding
-  ;;(om/transact! app :word-map #(merge-with union % (make-word-map FOOnew-item)))
-
-  (set! (.-location js/window) (str "/#notes/" id))
-  (secretary/dispatch! (str "#/notes/" id))
-  ;;(om/transact! app :hidden #(assoc % :view false))
-  ;;(om/transact! app :hidden #(assoc % :search true))
-  ;; (om/transact! app :hidden #(assoc % :add true))
-  ))
+    (set! (.-location js/window) (str "/#notes/" id))
+    (secretary/dispatch! (str "#/notes/" id))))
 
 ;; ! if side-effect, ie only for add I think?
 ;; but we also already have search and add fn
