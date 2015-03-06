@@ -161,6 +161,7 @@
 ;; what is value? takes one
 ;; more like view note?
 (defn view-note [app value]
+  ;; this should fetch
   (debug "view-note " value)
   (om/transact! app :hidden #(assoc % :about true))
   (om/transact! app :hidden #(assoc % :add true))
@@ -199,6 +200,15 @@
     (set! (.-location js/window) (str "/#notes/" id))
     (secretary/dispatch! (str "#/notes/" id))))
 
+;; TODO: Is this right? What getting back?
+(defn get-note-ok! [app resp]
+  (debug "RESP: " resp) ;; this right? now just POST left...
+  #_(let [id (count (:items resp))] ;; XXX: This is the last one, not very robust.
+    (om/transact! app :word-map #(:word-map resp))
+    (om/transact! app :items #(:items resp))
+    (set! (.-location js/window) (str "/#notes/" id))
+    (secretary/dispatch! (str "#/notes/" id))))
+
 ;; ! if side-effect, ie only for add I think?
 ;; but we also already have search and add fn
 ;; time for namespaces
@@ -207,6 +217,11 @@
    :view-note   {:type :nav  :method view-note}
    :view-search {:type :nav  :method view-search}
    :view-about  {:type :nav  :method view-about}
+   :get-note    {:type :ajax
+                 :method GET
+                 :uri-fn #(str @base-url "/note/")
+                 :ok-fn get-note-ok!
+                 :err-fn default-err-fn}
    :add-note!   {:type :ajax
                  :method POST
                  :uri-fn #(str @base-url "/note/")
@@ -227,16 +242,16 @@
           :ajax
           (method (uri-fn)
                   {:params value
-                   :format :edn
-                     :handler
-                     (fn [body]
-                       (let [{:keys [status message]} (reader/read-string body)]
-                         (if (= status "ok")
-                           (ok-fn app message)
-                           (err-fn app message))))
-                     :timeout 20000
-                     :error-handler
-                     (fn [err] (prn (str "error: " err)))})
+                   ;;:format :edn ;; trying a la controllers
+                   :handler
+                   (fn [body]
+                     (let [{:keys [status message]} (reader/read-string body)]
+                       (if (= status :ok) ;; prev "ok"
+                         (ok-fn app message)
+                         (err-fn app message))))
+                   :timeout 20000
+                   :error-handler
+                   (fn [err] (prn (str "error: " err)))})
           :nav
           (if value (method app value) (method app)))))))
 
@@ -312,11 +327,11 @@
   (put! comm-alt {:tag :view-about :value {}}))
 
 (defroute "/notes/:id" {:as params}
-  (put! comm-alt {:tag :view-note :value {:id (:id params)}}))
+  (put! comm-alt {:tag :get-note :value {:id (:id params)}}))
 
 (defroute "/add" {} (put! comm-alt {:tag :view-add :value {}}))
 
-(defroute "/search" {}(put! comm-alt {:tag :view-search :value {}}))
+(defroute "/search" {} (put! comm-alt {:tag :view-search :value {}}))
 
 (defn main []
   (om/root app-view

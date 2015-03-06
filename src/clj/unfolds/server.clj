@@ -26,7 +26,7 @@
 
 (defn generate-response [data & [status]]
   {:status (or status 200)
-   :headers {"Content-Type" "application/edn"}
+   ;;:headers {"Content-Type" "application/json"} ;;edn
    :body (pr-str data)})
 
 (defn get-item-by-id [id]
@@ -70,7 +70,6 @@
 (defn log [msg arg]
   (println msg ": " arg)
   arg)
-
 
 ;; OLD
 ;; database
@@ -122,17 +121,28 @@
   (log "add-note"
        (str {:status "ok" :message @db})))
 
+;; TODO: use bidi
 (defroutes routes
   (resources "/")
   (resources "/react" {:root "react"})
+  (GET "/note/" {params :params}
+       (do (println "ID: " (:id params))
+           (generate-response {:status :ok :message (get-item-by-id (:id params))})))
+  (GET "/search/" {params :params} (generate-response {:status :ok :message params}))
+  ;; api notes
+  ;; get one note by id
+  ;; post one note with params
+  ;; search by title
+  ;; thats it?
+
   (POST "/note/" {params :params} (wrap-errors add-note params))
   (GET "/*" req (page)))
 
 (defn api [routes]
   (-> routes
-      ;;wrap-keyword-params
-      ;;wrap-nested-params
-      ;;wrap-params
+      wrap-keyword-params
+      wrap-nested-params
+      wrap-params
       wrap-edn-params))
 
 (def http-handler
