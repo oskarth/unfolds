@@ -65,7 +65,7 @@
                   :item/text text
                   :item/id  (gen-uuid)
                   :db/id (d/tempid :db.part/user)}])
-    (generate-response {:status :ok})))
+    (generate-response {:status :ok}}))) ;; should this return user?
 
 (defn log [msg arg]
   (println msg ": " arg)
@@ -122,20 +122,27 @@
        (str {:status "ok" :message @db})))
 
 ;; TODO: use bidi
+;; TODO: Clean up with just a fn for each
 (defroutes routes
   (resources "/")
   (resources "/react" {:root "react"})
   (GET "/note/" {params :params}
-       (do (println "ID: " (:id params))
+       (do (println "GET NOTE ID: " (:id params))
            (generate-response {:status :ok :message (get-item-by-id (:id params))})))
-  (GET "/search/" {params :params} (generate-response {:status :ok :message params}))
-  ;; api notes
-  ;; get one note by id
-  ;; post one note with params
-  ;; search by title
-  ;; thats it?
 
-  (POST "/note/" {params :params} (wrap-errors add-note params))
+  (GET "/search/" {params :params}
+       (do (println "SEARCH TEXT: " (:text params))
+           (generate-response {:status :ok :message (search-title (:text params))})))
+
+  ;; TODO: also messy with content-type etc. just do json-api?
+  (POST "/note/" {params :params}
+        (generate-response {:status :ok :message (add-item params)}))
+  
+  ;; server error 500? and text/plain? something with println and do
+  #_(POST "/note/" {params :params}
+        (do (println ("POST NOTE: " (str params)))
+            (generate-response {:status :ok :message (add-item params)})))
+
   (GET "/*" req (page)))
 
 (defn api [routes]

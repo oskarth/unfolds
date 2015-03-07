@@ -193,7 +193,12 @@
 (defn default-err-fn [app msg]
   (debug "ERROR: " msg))
 
+
 (defn add-note-ok! [app resp]
+  (debug "RESP: " (:body resp))
+  )
+
+#_(defn add-note-ok! [app resp]
   (let [id (count (:items resp))] ;; XXX: This is the last one, not very robust.
     (om/transact! app :word-map #(:word-map resp))
     (om/transact! app :items #(:items resp))
