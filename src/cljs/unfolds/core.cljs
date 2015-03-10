@@ -102,64 +102,64 @@
                            :onChange
                            #(handle-item-text-change % owner state)})
 
-             ;; opts not getting in here
             (dom/button #js {:onClick #(add-item item owner opts)}
-                        "Add item"))
+                        "Add item"))))))))
 
-
-          ;; ;; not this
-          ;;   #_(om/build c/editable item
-          ;;     {:opts
-          ;;      {:edit-key :item/title
-          ;;       :on-edit
-          ;;       ;; TODO: transact to app-state? whats up with button?
-          ;;       ;; what was wrong with what we had?
-          ;;       (fn [{:keys [value edit-key]}]
-          ;;         (put! sync {:op create :data value}) ;; nope, almost
-          ;;         )}})
-
-            ;; or this
-            ;; #_(om/build c/editable item
-            ;;   {:opts
-            ;;    {:edit-key :item/text
-            ;;     :on-edit
-            ;;     (fn [{:keys [value edit-key]}]
-            ;;       (put! sync {:op :create :data value}))}})
-          ))))))
-
-;; TODO
 (defn items-view [items owner {:keys [current-item sync]}]
   (reify
     om/IRender
     (render [_]
       (dom/div #js {:id "items-view"}
-        (dom/button
-         #js {:id "add-item"
-              :className "button"
-              :onClick (fn [e] (put! current-item :new))} ;; idk about this :new biz
-         "Add item")
         (apply dom/ul #js {:id "items-list"}
-          (map (fn [i]
-                 (let [id (:db/id i)]
-                   (dom/li
-                    #js {:onClick (fn [e] (put! current-item id))} ;;?
-                    (dom/div nil
-                             (dom/b nil (:item/title i))
-                             (str " (" (:item/id i) ") " (:item/text i))
-                             (link (str "#/" (:item/id i)) "link")))))
-               items))))))
+               (map (fn [item]
+                      (let [i (first item)]
+                        (dom/li
+                         #js {:onClick (fn [e] (put! current-item id))} ;;?
+                         (dom/div nil
+                                  (dom/b nil (:item/title i))
+                                  (dom/br nil "")
+                                  (link (str "#/" (:item/id i))
+                                        (:item/id i))
+                                  (dom/br nil "")
+                                  (dom/br nil "")))))
+                    items))))))
 
-(defn menu-view [app owner]
+(defn handle-search-change [e owner {:keys [text]}]
+  (let [value (.. e -target -value)]
+    (om/set-state! owner :text text)))
+
+(defn search [app owner {:keys [sync current-item]}] ;; XXX: current-item really?
+  (let [search (-> (om/get-node owner "search")
+                   .-value)]
+    (when search
+      (put! sync {:op :search
+                  :data {:subs search}}))))
+
+(defn search-view [app owner {:keys [current-item sync]}]
   (reify
-    om/IRender
-    (render [_]
-      (dom/p nil
-        (dom/h1 nil
-          (dom/a #js {:href "" :className "none"
-                      :text-decoration "none"} "Unfolds"))
-        (dom/span nil "  ")
-        (dom/a #js {:href "#/addqq"} "add") " "
-        (dom/a #js {:href "#/searchqqq"} "search") " "))))
+    om/IRenderState
+    (render-state [_ state]
+      (let [opts {:current-item current-item ;;; XXX
+                  :sync sync}]
+        (dom/div #js {:id "search-view"}
+          (str "Search: ")
+          (dom/input #js {:value (:search state)
+                          :type "text"
+                          :ref "search"
+                          :onChange
+                          #(handle-search-change % owner state)})
+          (dom/button #js {:onClick #(search app owner opts)} "Search")
+          
+          #_(apply dom/ul #js {:id "items-list"}
+                   (map (fn [i]
+                          (let [id (:db/id i)]
+                            (dom/li
+                             #js {:onClick (fn [e] (put! current-item id))} ;;?
+                             (dom/div nil
+                                      (dom/b nil (:item/title i))
+                                      (str " (" (:item/id i) ") " (:item/text i))
+                                      (link (str "#/" (:item/id i)) "link")))))
+                        items)))))))
 
 (defn app-view [app owner]
   (reify
@@ -173,11 +173,20 @@
 
       ;; routes
       (defroute "/" []
-        (om/update! app :route [:view-item "ea72343d-89dc-4dfc-85af-25e1113b0948"]))
+        (om/update! app :route
+                    [:view-item "ea72343d-89dc-4dfc-85af-25e1113b0948"]))
 
+      ;; for example, search
+      (defroute "/items" []
+        (om/update! app :route [:list-items]))
+      
       ;; why doesn't defroute new?
       (defroute "/new" []
         (om/update! app :route [:add-item]))
+
+      (defroute "/search" []
+        (om/update! app :route [:search-item]))
+
 
       (defroute "/:id" {id :id}
         ;; debug
@@ -209,6 +218,10 @@
                              {:item/title "New item"
                               :item/text ""}))
 
+               (= id :search) ;; XXX: stretching the current-item metaphor here
+               (do
+                 (.setToken history "/search"))
+
                :else
                (let [item (<! (util/edn-chan {:url (str "/items/" id)}))]
                  (.setToken history (str "/" id))
@@ -216,6 +229,7 @@
             (recur)))
 
       ;; sync loop
+      ;; XXX: Don't know if sync is the best name anymore
       (go (loop []
             (let [{:keys [op data]} (<! (om/get-state owner :sync))]
               (condp = op
@@ -223,9 +237,17 @@
                 (let [data (<! (util/edn-chan
                                 {:method :post :url "/items"
                                  :data data}))]
-                  (prn "reachy? " data)
                   (.setToken history (str "/" (:item/id data))) ;; XXX
                   (om/transact! app :current-item #(merge % data)))
+
+                ;; TODO: where's get? Why not here?
+
+                :search
+                (let [data (<! (util/edn-chan
+                                {:url (str "/search/" (:subs data))}))]
+                  ;; what if there's no hit?
+                  (.setToken history (str "/items")) ;; XXX
+                  (om/transact! app :items (fn [_] data))) ;; NOT merge, replace
                 
                 (recur))))))
     
@@ -247,7 +269,6 @@
                   :onClick (fn [e] (put! current-item :new))}
              "Add")
 
-            ;; TODO
             (dom/button
              #js {:id "search-item"
                   :className "button"
@@ -258,6 +279,8 @@
             (case (first (:route app))
                       ;; what need? XXX
               :add-item (om/build item-add-view (:current-item app) opts)
+              ;; why bring current-item here?
+              :search-item (om/build search-view (:current-item app) opts)
               :list-items (om/build items-view (:items app) opts)
               :view-item (om/build item-view (:current-item app) opts))))))))
 
@@ -270,18 +293,6 @@
     (swap! app-state assoc :current-item res)
     (om/root app-view app-state
              {:target (gdom/getElement "items")}))})
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ;; (comment
