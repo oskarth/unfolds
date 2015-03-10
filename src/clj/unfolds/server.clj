@@ -30,14 +30,12 @@
 ;; Routing
 
 (def routes
-  ["" {"/" :index
-       "/index.html" :index
+  ["" {"/"                :index
+       "/index.html"      :index
        "/items"
-       {:get
-        {[""] :items
-         ["/" :id] :item-get}
-        :post {[""] :item-create}
-        :put {["/" :id] :item-update}}
+       {:get {[""]        :items
+              ["/" :id]   :item-get}
+        :post {[""]       :item-create}}
        "/search"
        {:get {["/" :subs] :search}}}])
 
@@ -78,7 +76,7 @@
     ;; must have form {:item/title "x" :item/text "y"} (and uuid?)
     (:edn-params req))))
 
-(defn item-update [req id]
+#_(defn item-update [req id]
   (generate-response
    (unfolds.datomic/update-item
     (:datomic-connection req)
@@ -95,9 +93,9 @@
     (case (:handler match)
       :index (index req)
       :items (items req)
-      :item-get (item-get req (:id (:params match)))
+      :item-get (item-get req (:id (:route-params match)))
       :item-create (item-create req)
-      :search (search req (:subs (:params match)))
+      :search (search req (:subs (:route-params match)))
       
       req)))
 
@@ -136,8 +134,14 @@
 
   ;; get item
   (handler {:uri "/items/ea72343d-89dc-4dfc-85af-25e1113b0948"
-           :request-method :get
+            :request-method :get
             :datomic-connection (:connection (:db @unfolds.core/servlet-system))})
+
+  ;; search item
+  (handler {:uri "/search/Structure"
+            :request-method :get
+            :datomic-connection (:connection (:db @unfolds.core/servlet-system))})
+  
   )
 
 

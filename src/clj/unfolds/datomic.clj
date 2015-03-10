@@ -68,10 +68,11 @@
 (defn create-item [conn data]
   (let [tempid (d/tempid :db.part/user)
         r @(d/transact conn [(assoc data :db/id tempid)])]
-    (assoc data :db/id
-           (str (d/resolve-tempid (:db-after r) (:tempids r) tempid)))))
+    (assoc data
+      :db/id (str (d/resolve-tempid (:db-after r) (:tempids r) tempid))
+      :item/id (gen-uuid))))
 
-(defn update-item [conn data]
+#_(defn update-item [conn data]
   @(d/transact conn [(assoc data :db/id (edn/read-string (:db/id data)))])
   true)
 
@@ -100,8 +101,7 @@
 (comment
   (create-item (:connection (:db @unfolds.core/servlet-system))
                {:item/title "This is a test title"
-                :item/text "This is a test text"
-                :item/id (gen-uuid)})
+                :item/text "This is a test text"})
 
   (get-item (d/db (:connection (:db @unfolds.core/servlet-system)))
             "ea72343d-89dc-4dfc-85af-25e1113b0948")
@@ -109,8 +109,7 @@
   (list-items (d/db (:connection (:db @unfolds.core/servlet-system))))
 
   (display-items (d/db (:connection (:db @unfolds.core/servlet-system))))
-
     
   (search-item-title (d/db (:connection (:db @unfolds.core/servlet-system)))
-                     "test")
+                     "foo")
   )
