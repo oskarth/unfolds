@@ -72,9 +72,9 @@
       :db/id (str (d/resolve-tempid (:db-after r) (:tempids r) tempid))
       :item/id (gen-uuid))))
 
-#_(defn update-item [conn data]
-  @(d/transact conn [(assoc data :db/id (edn/read-string (:db/id data)))])
-  true)
+;; (defn update-item [conn data]
+;;   @(d/transact conn [(assoc data :db/id (edn/read-string (:db/id data)))])
+;;   true)
 
 (defrecord DatomicDatabase [uri schema initial-data connection]
   component/Lifecycle
