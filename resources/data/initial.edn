@@ -1,0 +1,16 @@
+[;; items
+ {:db/id #db/id[:db.part/user]
+  :item/id "fa72343d-89dc-4dfc-85af-25e1113b0948"
+  :item/title "The Structure and Interpretation of Computer Programs"
+  :item/text "The Structure and Interpretation of Computer Progams
+ THIS IS THE TEXT"}
+ {:db/id #db/id[:db.part/user]
+  :item/id "2df790c8-8536-47af-9120-a9dc76d1ef29"
+  :item/title "The Structure and Interpretation of Itemical Mechanics"
+  :item/text "The Structure and Interpretation of Itemical Mechanics
+THISIS THEI TEMXT"}
+ {:db/id #db/id[:db.part/user]
+  :item/id "4f239d80-8919-4e8e-aafa-f5b2625cf8c7"
+  :item/title "Linear Algebra"
+  :item/text "Linear Algebra THIS IS TEHE TEXT"}
+]
