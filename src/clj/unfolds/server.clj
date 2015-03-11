@@ -1,7 +1,6 @@
 (ns unfolds.server
-  (:require [unfolds.util :as util]
+  (:require [unfolds.datomic :as datomic]
             [clojure.java.io :as io]
-            [unfolds.dev :refer [is-dev? inject-devmode-html browser-repl start-figwheel]]
             [compojure.core :refer [GET POST defroutes]]
             [ring.middleware.reload :as reload]
             [datomic.api :as d]
@@ -45,28 +44,28 @@
 (defn items [req]
   (generate-response
    (vec
-    (unfolds.datomic/display-items
+    (datomic/display-items
      (d/db (:datomic-connection req))))))
 
 (defn item-get [req id]
   (generate-response
-   (unfolds.datomic/get-item
+   (datomic/get-item
     (d/db (:datomic-connection req)) id)))
 
 (defn search [req subs]
   (generate-response
-   (unfolds.datomic/search-item-title
+   (datomic/search-item-title
     (d/db (:datomic-connection req)) subs)))
 
 (defn item-create [req]
   (generate-response
-   (unfolds.datomic/create-item
+   (datomic/create-item
     (:datomic-connection req)
     (:edn-params req))))
 
 #_(defn item-update [req id]
   (generate-response
-   (unfolds.datomic/update-item
+   (datomic/update-item
     (:datomic-connection req)
     (assoc (:edn-params req) :db/id id))))
 

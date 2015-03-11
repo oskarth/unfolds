@@ -100,8 +100,8 @@
 
 (comment
   (create-item (:connection (:db @unfolds.core/servlet-system))
-               {:item/title "This is a test title"
-                :item/text "This is a test text"})
+               {:item/title "great"
+                :item/text "This iglass testt"})
 
   (get-item (d/db (:connection (:db @unfolds.core/servlet-system)))
             "ea72343d-89dc-4dfc-85af-25e1113b0948")
@@ -111,5 +111,8 @@
   (display-items (d/db (:connection (:db @unfolds.core/servlet-system))))
     
   (search-item-title (d/db (:connection (:db @unfolds.core/servlet-system)))
-                     "foo")
+                     "great")
+
+  ;; careful
+  ;;(d/delete-database "datomic:free://localhost:4334/unfolds")
   )

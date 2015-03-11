@@ -4,8 +4,6 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :source-paths ["src/clj" "src/cljs"]
-
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/clojurescript "0.0-2371" :scope "provided"]
                  [ring "1.3.1"]
@@ -13,8 +11,6 @@
                  [cljs-ajax "0.3.10"]
                  [com.datomic/datomic-free "0.9.5130" :exclusions [joda-time]]
                  [fogus/ring-edn "0.2.0"]
-                 ;;[ring-transit "0.1.3"]
-                 ;;[enlive "1.1.5"]
                  [bidi "1.18.7"]
                  [secretary "1.2.1"]
                  [om "0.7.3"]
@@ -22,46 +18,39 @@
                  [environ "1.0.0"]
                  [com.cemerick/piggieback "0.1.3"]
                  [com.stuartsierra/component "0.2.3"]
-                 [slingshot "0.12.2"]
                  [weasel "0.4.0-SNAPSHOT"]
                  [leiningen "2.5.0"]]
 
+  :source-paths ["src/clj" "src/cljs"]
+
   :plugins [[lein-cljsbuild "1.0.3"]
+            [lein-ring "0.9.2"]
             [lein-cljfmt "0.1.10"]
             [lein-environ "1.0.0"]]
 
-  :min-lein-version "2.5.0"
+  :ring {:handler unfolds.core/service
+         :init unfolds.core/start
+         :destroy unfolds.core/stop}
 
-  :uberjar-name "unfolds.jar"
-
-  :cljsbuild {:builds {:app {:source-paths ["src/cljs"]
-                             :compiler {:output-to     "resources/public/js/app.js"
-                                        :output-dir    "resources/public/js/out"
-                                        :source-map    "resources/public/js/out.js.map"
-                                        :preamble      ["react/react.min.js"]
-                                        :externs       ["react/externs/react.js"]
-                                        :optimizations :none
-                                        :pretty-print  true}}}}
-
-  :profiles {:dev {:repl-options {:init-ns unfolds.server
-                                  :nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
-
-                   :plugins [[lein-figwheel "0.1.4-SNAPSHOT"]]
-
-                   :figwheel {:http-server-root "public"
-                              :port 3449
-                              :css-dirs ["resources/public/css"]}
-
-                   :env {:is-dev true}
-
-                   :cljsbuild {:builds {:app {:source-paths ["env/dev/cljs"]}}}}
-
-             :uberjar {:hooks [leiningen.cljsbuild]
-                       :env {:production true}
-                       :omit-source true
-                       :aot :all
-                       :cljsbuild {:builds {:app
-                                            {:source-paths ["env/prod/cljs"]
-                                             :compiler
-                                             {:optimizations :advanced
-                                              :pretty-print false}}}}}})
+  :cljsbuild {
+    :builds [
+      {:id "dev"
+       :source-paths ["src/cljs"]
+       :compiler {
+         :output-to "resources/public/js/main.js"
+         :output-dir "resources/public/js/out"
+         :optimizations :none
+         :source-map true
+       }}
+      {:id "release"
+       :source-paths ["src/cljs"]
+       :compiler {
+         :output-to "resources/public/js/main.js"
+         :optimizations :advanced
+         :output-wrapper true
+         :pretty-print false
+         :preamble ["react/react.min.js"]
+         :externs ["react/externs/react.js"]
+       }}
+    ]
+  })

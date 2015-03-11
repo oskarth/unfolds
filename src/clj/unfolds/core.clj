@@ -24,7 +24,7 @@
 
 (defn start []
   (let [s (system/prod-system
-            {:db-uri   "datomic:mem://localhost:4334/unfolds"})]
+            {:db-uri   "datomic:free://localhost:4334/unfolds"})]
     (let [started-system (component/start s)]
       (reset! servlet-system started-system))))
 
