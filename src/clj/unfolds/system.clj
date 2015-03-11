@@ -12,6 +12,7 @@
         (unfolds.server/dev-server web-port)
         {:datomic-connection  :db}))))
 
+;; TODO: Don't create a new database all the time
 (defn prod-system [config-options]
   (let [{:keys [db-uri]} config-options]
     (component/system-map
