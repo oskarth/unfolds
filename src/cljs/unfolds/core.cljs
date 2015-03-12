@@ -141,6 +141,9 @@
       (let [opts {:current-item current-item ;;; XXX
                   :sync sync}]
         (dom/div #js {:id "search-view"}
+                 (dom/p nil "Currently only title's are searchable. It
+                 might take a few seconds before entries are
+                 indexed.")
           (str "Search: ")
           (dom/input #js {:value (:search state)
                           :type "text"
