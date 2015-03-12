@@ -61,6 +61,24 @@
       (om/set-state! owner :title title)
       (om/set-state! owner :title value))))
 
+;; TODO: word-spacing (jsut add " " after 9)
+;; Doesn't work because of split-words...
+(def link-re #"\[\[([A-Za-z0-9\-]+)\|([A-Za-z0-9]+)\]\]")
+(defn link [href str] (dom/a #js {:href href} str))
+(defn link? [s] (if (re-find link-re s) true false))
+(defn get-href [s] (str (nth (re-find link-re s) 1)))
+(defn get-title [s] (str (nth (re-find link-re s) 2)))
+
+(defn str-or-link [x]
+  (if (link? x)
+    (link (str "/#/" (get-href x)) (get-title x))
+    (str " " x " ")))
+
+(defn split-words [s] (split s #"\s+"))
+
+(defn prepare-item [s]
+  (vec (map str-or-link (split-words s))))
+
 ;; =============================================================================
 ;; Components
 
