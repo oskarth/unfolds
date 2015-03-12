@@ -88,7 +88,8 @@
                (dom/h2 nil (:item/title item))
                (dom/br nil "")
                (link (str "#/" (:item/id item)) (:item/id item))
-               ;; prepare-item
+               (dom/br nil "") ;; XXX: ghetto paragraph
+               (dom/br nil "")
                (apply dom/div nil
                       (prepare-item (:item/text item)))))))
 
@@ -100,7 +101,12 @@
                   :sync sync}]
         (dom/div #js {:id "item-add-view"}
         (dom/div #js {:id "item-info"}
-          (dom/div #js {:className "item-name editable"}
+                 (dom/div #js {:className "item-name editable"}
+                          (dom/p nil "If you want to link to, say, the
+                          start page,
+                          write [[ea72343d-89dc-4dfc-85af-25e1113b0948|Unfolds]].
+                          Unfortunately the link text can only be one
+                          word for now (no spaces).")
             (dom/input #js
                        {:value (:title state)
                         :ref "new-item-title"
