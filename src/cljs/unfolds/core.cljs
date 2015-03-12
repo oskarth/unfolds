@@ -35,8 +35,6 @@
 ;; =============================================================================
 ;; Helpers
 
-(defn link [href str] (dom/a #js {:href href} str))
-
 (defn add-item [item owner {:keys [sync current-item]}]
   (let [new-text (-> (om/get-node owner "new-item-text")
                      .-value)
@@ -90,7 +88,9 @@
                (dom/h2 nil (:item/title item))
                (dom/br nil "")
                (link (str "#/" (:item/id item)) (:item/id item))
-               (dom/p nil (:item/text item))))))
+               ;; prepare-item
+               (apply dom/div nil
+                      (prepare-item (:item/text item)))))))
 
 (defn item-add-view [item owner {:keys [current-item sync]}]
   (reify
