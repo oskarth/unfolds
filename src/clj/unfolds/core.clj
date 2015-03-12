@@ -32,10 +32,8 @@
 
 (comment
 
-  (start)
-  (service {:port "8081"})
-  ;; what is req?
+  ;; in repl
+  (dev-start)
 
-  @servlet-system
-  
+  ;; eqv for prod-system wrt port?
   )

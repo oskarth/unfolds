@@ -27,7 +27,7 @@
   ;; This component bla is too complicated. Just give me basic ENVs.
 
   (def s (dev-system {:db-uri   "datomic:mem://localhost:4334/unfolds"
-                      :web-port 8081}))
+                      :web-port 8080}))
   (def s1 (component/start s))
 
   ;; why doesn't this work but above does?

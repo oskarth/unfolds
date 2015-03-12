@@ -11,7 +11,6 @@
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <!]]
             [cljs.reader :as reader]
-            [ajax.core :refer (GET PUT POST)]
             [goog.dom :as gdom]
             [unfolds.util :as util]
             [secretary.core :as secretary])
@@ -44,7 +43,6 @@
         new-title (-> (om/get-node owner "new-item-title")
                       .-value)]
     (when (and new-title new-text)
-      (prn "Adding " new-title ": " new-text)
       (put! sync {:op :create
                   :data {:item/title new-title :item/text new-text}}))))
 
@@ -83,8 +81,6 @@
       (let [opts {:current-item current-item ;;; XXX
                   :sync sync}]
         (dom/div #js {:id "item-add-view"}
-                 ;;(prn "ITEM AD " item)
-                 (prn "OPTS ? " opts)
         (dom/div #js {:id "item-info"}
           (dom/div #js {:className "item-name editable"}
             (dom/input #js
@@ -108,12 +104,14 @@
   (reify
     om/IRender
     (render [_]
+      (prn "ITEMS-VIEW (search?) " @app-state)
       (dom/div #js {:id "items-view"}
         (apply dom/ul #js {:id "items-list"}
                (map (fn [item]
                       (let [i (first item)]
                         (dom/li
-                         #js {:onClick (fn [e] (put! current-item id))} ;;?
+                          ;;TODO: i or itm? onclick what?
+                         #js {:onClick (fn [e] (put! current-item i))}
                          (dom/div nil
                                   (dom/b nil (:item/title i))
                                   (dom/br nil "")
@@ -140,6 +138,7 @@
     (render-state [_ state]
       (let [opts {:current-item current-item ;;; XXX
                   :sync sync}]
+        (prn "SEARCH-VIEW " @app-state)
         (dom/div #js {:id "search-view"}
           (str "Search: ")
           (dom/input #js {:value (:search state)
@@ -147,18 +146,7 @@
                           :ref "search"
                           :onChange
                           #(handle-search-change % owner state)})
-          (dom/button #js {:onClick #(search app owner opts)} "Search")
-          
-          #_(apply dom/ul #js {:id "items-list"}
-                   (map (fn [i]
-                          (let [id (:db/id i)]
-                            (dom/li
-                             #js {:onClick (fn [e] (put! current-item id))} ;;?
-                             (dom/div nil
-                                      (dom/b nil (:item/title i))
-                                      (str " (" (:item/id i) ") " (:item/text i))
-                                      (link (str "#/" (:item/id i)) "link")))))
-                        items)))))))
+          (dom/button #js {:onClick #(search app owner opts)} "Search"))))))
 
 (defn app-view [app owner]
   (reify
@@ -179,7 +167,6 @@
       (defroute "/items" []
         (om/update! app :route [:list-items]))
       
-      ;; why doesn't defroute new?
       (defroute "/new" []
         (om/update! app :route [:add-item]))
 
@@ -188,9 +175,6 @@
 
 
       (defroute "/:id" {id :id}
-        ;; debug
-        (prn "GOING PLACES " @app-state)
-        (prn "ID  " id)
         (om/update! app :route [:view-item id])
         ;; if page loads on an item
         (when (and (= (:current-item (om/value (om/get-props owner))) :none)
@@ -245,6 +229,7 @@
                 (let [data (<! (util/edn-chan
                                 {:url (str "/search/" (:subs data))}))]
                   ;; what if there's no hit?
+                  ;; this could be a problem, me thinks?
                   (.setToken history (str "/items")) ;; XXX
                   (om/transact! app :items (fn [_] data))) ;; NOT merge, replace
                 
@@ -280,7 +265,7 @@
               :add-item (om/build item-add-view (:current-item app) opts)
               ;; why bring current-item here?
               :search-item (om/build search-view (:current-item app) opts)
-              :list-items (om/build items-view (:items app) opts)
+              :list-items (om/build items-view (:items app) opts) ;; never hit
               :view-item (om/build item-view (:current-item app) opts))))))))
 
 (util/edn-xhr

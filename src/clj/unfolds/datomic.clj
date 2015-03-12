@@ -65,16 +65,14 @@
          db
          subs))
 
+;; Why do we need the resolve-tempid business?
 (defn create-item [conn data]
   (let [tempid (d/tempid :db.part/user)
-        r @(d/transact conn [(assoc data :db/id tempid)])]
+        r @(d/transact conn [(assoc data
+                               :db/id tempid
+                               :item/id (gen-uuid))])]
     (assoc data
-      :db/id (str (d/resolve-tempid (:db-after r) (:tempids r) tempid))
-      :item/id (gen-uuid))))
-
-;; (defn update-item [conn data]
-;;   @(d/transact conn [(assoc data :db/id (edn/read-string (:db/id data)))])
-;;   true)
+      :db/id (str (d/resolve-tempid (:db-after r) (:tempids r) tempid)))))
 
 (defrecord DatomicDatabase [uri schema initial-data connection]
   component/Lifecycle
@@ -124,7 +122,7 @@
   (display-items (d/db (:connection (:db @unfolds.core/servlet-system))))
     
   (search-item-title (d/db (:connection (:db @unfolds.core/servlet-system)))
-                     "great")
+                     "glass")
 
   ;; careful
   ;;(d/delete-database "datomic:free://localhost:4334/unfolds")
