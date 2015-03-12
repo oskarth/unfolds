@@ -29,3 +29,13 @@
       (reset! servlet-system started-system))))
 
 (defn stop [])
+
+(comment
+
+  (start)
+  (service {:port "8081"})
+  ;; what is req?
+
+  @servlet-system
+  
+  )

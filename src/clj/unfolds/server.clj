@@ -1,8 +1,5 @@
 (ns unfolds.server
   (:require [unfolds.datomic :as datomic]
-            [clojure.java.io :as io]
-            [compojure.core :refer [GET POST defroutes]]
-            [ring.middleware.reload :as reload]
             [datomic.api :as d]
             [clojure.edn :as edn]
             [environ.core :refer [env]]
@@ -87,7 +84,8 @@
       req)))
 
 (defn wrap-connection [handler conn]
-  (fn [req] (handler (assoc req :datomic-connection conn))))
+  (fn [req] (handler (assoc req
+                       :datomic-connection conn))))
 
 (defn unfolds-handler [conn]
   (wrap-resource

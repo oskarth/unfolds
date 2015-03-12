@@ -86,6 +86,19 @@
       (assoc component :connection c)))
   (stop [component]))
 
+;; Something like this? If we have to implement component/Lifecycle
+;; Otherwise what's wrong with this?
+;; (d/db (:connection (:db @unfolds.core/servlet-system)))
+(defrecord ExistingDatomicDatabase [uri connection]
+  component/Lifecycle
+  (start [component]
+    (let [c (d/connect uri)]
+      (assoc component :connection c)))
+  (stop [component]))
+
+(defn existing-database [db-uri]
+  (ExistingDatomicDatabase. db-uri nil))
+
 (defn new-database [db-uri]
   (DatomicDatabase. db-uri
                     (first (Util/readAll
