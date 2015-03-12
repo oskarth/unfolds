@@ -32,10 +32,15 @@
 
 (comment
 
-  (start)
-  (service {:port "8081"})
-  ;; what is req?
+   ;; HACKY PROD REPL
 
-  @servlet-system
-  
-  )
+  ;; sudo lein repl
+  (use 'unfolds.core)
+  (use 'ring.adapter.jetty)
+  (start)
+  (def jetty (run-jetty service {:port 80 :join? false}))
+
+  ;; then to stop it
+  (.stop jetty)
+
+)
