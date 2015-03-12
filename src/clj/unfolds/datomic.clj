@@ -8,8 +8,6 @@
 ;; =============================================================================
 ;; Helpers
 
-(defn gen-uuid [] (str (java.util.UUID/randomUUID)))
-
 (defn convert-db-id [x]
   (cond
     (instance? datomic.query.EntityMap x)
@@ -67,14 +65,11 @@
 
 (defn create-item [conn data]
   (let [tempid (d/tempid :db.part/user)
-        r @(d/transact conn [(assoc data :db/id tempid)])]
+        uuid (str (java.util.UUID/randomUUID))
+        r @(d/transact conn [(assoc data :db/id tempid :item/id uuid)])]
     (assoc data
       :db/id (str (d/resolve-tempid (:db-after r) (:tempids r) tempid))
-      :item/id (gen-uuid))))
-
-;; (defn update-item [conn data]
-;;   @(d/transact conn [(assoc data :db/id (edn/read-string (:db/id data)))])
-;;   true)
+      :item/id uuid)))
 
 (defrecord DatomicDatabase [uri schema initial-data connection]
   component/Lifecycle
@@ -113,8 +108,8 @@
 
 (comment
   (create-item (:connection (:db @unfolds.core/servlet-system))
-               {:item/title "great"
-                :item/text "This iglass testt"})
+               {:item/title "wtf"
+                :item/text "Thqq iglass testt"})
 
   (get-item (d/db (:connection (:db @unfolds.core/servlet-system)))
             "ea72343d-89dc-4dfc-85af-25e1113b0948")
@@ -124,7 +119,7 @@
   (display-items (d/db (:connection (:db @unfolds.core/servlet-system))))
     
   (search-item-title (d/db (:connection (:db @unfolds.core/servlet-system)))
-                     "great")
+                     "really")
 
   ;; careful
   ;;(d/delete-database "datomic:free://localhost:4334/unfolds")
