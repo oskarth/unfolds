@@ -80,7 +80,7 @@
 ;; =============================================================================
 ;; Components
 
-(defn item-view [item owner {:keys [navigate event]}]
+(defn item-view [item owner]
   (reify
     om/IRender
     (render [_]
@@ -96,7 +96,7 @@
 (defn item-add-view [item owner]
   (reify
     om/IRenderState
-    (render-state [_ state] ;; keys chan as etc?
+    (render-state [_ state]
       (let [event-chan (om/get-state owner [:event-chan])]
         (dom/div #js {:id "item-add-view"}
         (dom/div #js {:id "item-info"}
@@ -134,14 +134,10 @@
       (put! event-chan {:op :search :data {:subs search}}))))
 
 (defn search-view [items owner]
- ;;defn search-view [items owner {:keys [navigate event]}]
   (reify
     om/IRenderState
     (render-state [_ state]
-      (let [event-chan (om/get-state owner [:event-chan])
-            ;; opts {:navigate navigate
-            ;;       :event event}
-            ]
+      (let [event-chan (om/get-state owner [:event-chan])]
         (dom/div #js {:id "search-view"}
                  (dom/p nil "Currently only titles are searchable. It
                  might take a few seconds before entries are
@@ -171,9 +167,7 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:chans {:event-chan (chan (sliding-buffer 1))}
-       :navigate (chan)
-       :event (chan (sliding-buffer 1))})
+      {:chans {:event-chan (chan (sliding-buffer 1))}})
 
     om/IWillMount
     (will-mount [_]
@@ -182,9 +176,7 @@
         (go
           (while true
             (let [{:keys [op data]} (<! event-chan)]
-              (prn "event-chan " op ": " data)
               (condp = op
-
                 :view-new
                 (do
                   (.setToken history "/new")
