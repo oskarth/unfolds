@@ -35,14 +35,14 @@
 ;; =============================================================================
 ;; Helpers
 
-(defn add-item [item owner {:keys [event current-item]}]
+(defn add-item [item owner {:keys [event navigate]}]
   (let [new-text (-> (om/get-node owner "new-item-text")
                      .-value)
         new-title (-> (om/get-node owner "new-item-title")
                       .-value)]
     (when (and new-title new-text)
       (put! event {:op :create
-                  :data {:item/title new-title :item/text new-text}}))))
+                   :data {:item/title new-title :item/text new-text}}))))
 
 (defn handle-item-text-change [e owner {:keys [text]}]
   (let [value (.. e -target -value)
@@ -80,7 +80,7 @@
 ;; =============================================================================
 ;; Components
 
-(defn item-view [item owner {:keys [current-item event]}]
+(defn item-view [item owner {:keys [navigate event]}]
   (reify
     om/IRender
     (render [_]
@@ -88,16 +88,16 @@
                (dom/h2 nil (:item/title item))
                (dom/br nil "")
                (link (str "#/" (:item/id item)) (:item/id item))
-               (dom/br nil "") ;; XXX: ghetto paragraph
+               (dom/br nil "")
                (dom/br nil "")
                (apply dom/div nil
                       (prepare-item (:item/text item)))))))
 
-(defn item-add-view [item owner {:keys [current-item event]}]
+(defn item-add-view [item owner {:keys [navigate event]}]
   (reify
     om/IRenderState
     (render-state [_ state] ;; keys chan as etc?
-      (let [opts {:current-item current-item ;;; XXX
+      (let [opts {:navigate navigate
                   :event event}]
         (dom/div #js {:id "item-add-view"}
         (dom/div #js {:id "item-info"}
@@ -128,17 +128,17 @@
   (let [value (.. e -target -value)]
     (om/set-state! owner :text text)))
 
-(defn search [owner {:keys [event current-item]}] ;; XXX: current-item really?
+(defn search [owner {:keys [event navigate]}]
   (let [search (-> (om/get-node owner "search")
                    .-value)]
     (when (and search (not= search ""))
       (put! event {:op :search :data {:subs search}}))))
 
-(defn search-view [items owner {:keys [current-item event]}]
+(defn search-view [items owner {:keys [navigate event]}]
   (reify
     om/IRenderState
     (render-state [_ state]
-      (let [opts {:current-item current-item ;;; XXX
+      (let [opts {:navigate navigate
                   :event event}]
         (dom/div #js {:id "search-view"}
                  (dom/p nil "Currently only title's are searchable. It
@@ -169,7 +169,7 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:current-item (chan)
+      {:navigate (chan)
        :event (chan)})
 
     om/IWillMount
@@ -193,7 +193,7 @@
 
       ;; routing loop
       (go (loop []
-            (let [id (<! (om/get-state owner :current-item))]
+            (let [id (<! (om/get-state owner :navigate))]
               (cond
                (= id :new)
                (do
@@ -203,14 +203,15 @@
                               :item/text ""}))
 
                (= id :search)
-               (do
-                 (.setToken history "/search"))))
+               (.setToken history "/search")))
             (recur)))
 
       ;; event loop
       (go (loop []
-            (let [{:keys [op data]} (<! (om/get-state owner :event))]
+            (let [event (om/get-state owner :event)
+                  {:keys [op data]} (<! event)]
               (condp = op
+
                 :create
                 (let [data (<! (util/edn-chan
                                 {:method :post :url "/items"
@@ -228,15 +229,15 @@
                                 {:url (str "/search/" (:subs data))}))]
                   ;; XXX: what if there's no hit?
                   ;;(.setToken history (str "/items")) ;; XXX
-                  (om/transact! app :items (fn [_] data)) ;; search results
+                  (om/transact! app :items (fn [_] data))
                   )
                 
                 (recur))))))
     
     om/IRenderState
-    (render-state [_ {:keys [current-item event]}]
+    (render-state [_ {:keys [navigate event]}]
       (let [route (:route app)
-            opts {:opts {:current-item current-item
+            opts {:opts {:navigate navigate
                          :event event}}]
         ;; menu bar
         (dom/div nil
@@ -248,22 +249,19 @@
             (dom/button
              #js {:id "add-item"
                   :className "button"
-                  :onClick (fn [e] (put! current-item :new))}
+                  :onClick (fn [e] (put! navigate :new))}
              "Add")
 
             (dom/button
              #js {:id "search-item"
                   :className "button"
-                  :onClick (fn [e] (put! current-item :search))}
+                  :onClick (fn [e] (put! navigate :search))}
              "Search"))
           
           (dom/div nil
             (case (first (:route app))
-                      ;; what need? XXX
               :add-item (om/build item-add-view (:current-item app) opts)
-              ;; why bring current-item here?
               :search-item (om/build search-view (:items app)  opts)
-              ;;:list-items (om/build items-view (:items app) opts)
               :view-item (om/build item-view (:current-item app) opts))))))))
 
 (util/edn-xhr
