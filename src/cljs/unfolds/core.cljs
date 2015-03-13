@@ -131,7 +131,7 @@
 (defn search [owner {:keys [sync current-item]}] ;; XXX: current-item really?
   (let [search (-> (om/get-node owner "search")
                    .-value)]
-    (when search
+    (when (and search (not= search ""))
       (put! sync {:op :search :data {:subs search}}))))
 
 (defn search-view [items owner {:keys [current-item sync]}]
