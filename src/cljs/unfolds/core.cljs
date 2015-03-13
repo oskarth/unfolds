@@ -35,13 +35,13 @@
 ;; =============================================================================
 ;; Helpers
 
-(defn add-item [item owner {:keys [sync current-item]}]
+(defn add-item [item owner {:keys [event current-item]}]
   (let [new-text (-> (om/get-node owner "new-item-text")
                      .-value)
         new-title (-> (om/get-node owner "new-item-title")
                       .-value)]
     (when (and new-title new-text)
-      (put! sync {:op :create
+      (put! event {:op :create
                   :data {:item/title new-title :item/text new-text}}))))
 
 (defn handle-item-text-change [e owner {:keys [text]}]
@@ -80,7 +80,7 @@
 ;; =============================================================================
 ;; Components
 
-(defn item-view [item owner {:keys [current-item sync]}]
+(defn item-view [item owner {:keys [current-item event]}]
   (reify
     om/IRender
     (render [_]
@@ -93,12 +93,12 @@
                (apply dom/div nil
                       (prepare-item (:item/text item)))))))
 
-(defn item-add-view [item owner {:keys [current-item sync]}]
+(defn item-add-view [item owner {:keys [current-item event]}]
   (reify
     om/IRenderState
     (render-state [_ state] ;; keys chan as etc?
       (let [opts {:current-item current-item ;;; XXX
-                  :sync sync}]
+                  :event event}]
         (dom/div #js {:id "item-add-view"}
         (dom/div #js {:id "item-info"}
                  (dom/div #js {:className "item-name editable"}
@@ -128,18 +128,18 @@
   (let [value (.. e -target -value)]
     (om/set-state! owner :text text)))
 
-(defn search [owner {:keys [sync current-item]}] ;; XXX: current-item really?
+(defn search [owner {:keys [event current-item]}] ;; XXX: current-item really?
   (let [search (-> (om/get-node owner "search")
                    .-value)]
     (when (and search (not= search ""))
-      (put! sync {:op :search :data {:subs search}}))))
+      (put! event {:op :search :data {:subs search}}))))
 
-(defn search-view [items owner {:keys [current-item sync]}]
+(defn search-view [items owner {:keys [current-item event]}]
   (reify
     om/IRenderState
     (render-state [_ state]
       (let [opts {:current-item current-item ;;; XXX
-                  :sync sync}]
+                  :event event}]
         (dom/div #js {:id "search-view"}
                  (dom/p nil "Currently only title's are searchable. It
                  might take a few seconds before entries are
@@ -170,7 +170,7 @@
     om/IInitState
     (init-state [_]
       {:current-item (chan)
-       :sync (chan)})
+       :event (chan)})
 
     om/IWillMount
     (will-mount [_]
@@ -218,10 +218,9 @@
                  (om/update! app :current-item item))))
             (recur)))
 
-      ;; sync loop
-      ;; XXX: Don't know if sync is the best name anymore
+      ;; event loop
       (go (loop []
-            (let [{:keys [op data]} (<! (om/get-state owner :sync))]
+            (let [{:keys [op data]} (<! (om/get-state owner :event))]
               (condp = op
                 :create
                 (let [data (<! (util/edn-chan
@@ -243,10 +242,10 @@
                 (recur))))))
     
     om/IRenderState
-    (render-state [_ {:keys [current-item sync]}]
+    (render-state [_ {:keys [current-item event]}]
       (let [route (:route app)
             opts {:opts {:current-item current-item
-                         :sync sync}}]
+                         :event event}}]
         ;; menu bar
         (dom/div nil
           (dom/p nil
