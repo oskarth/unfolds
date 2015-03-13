@@ -195,12 +195,6 @@
       (go (loop []
             (let [id (<! (om/get-state owner :current-item))]
               (cond
-               (= id :none)
-               (do
-                 (.setToken history "/")
-                 (om/update! app :items
-                             (vec (<! (util/edn-chan {:url "/items"})))))
-
                (= id :new)
                (do
                  (.setToken history "/new")
