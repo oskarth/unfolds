@@ -187,7 +187,7 @@
 
       (defroute "/:id" {id :id}
         (om/update! app :route [:view-item id])
-        (put! (om/get-state owner :current-item) id))
+        (put! (om/get-state owner :event) {:op :get :data id}))
 
       (.setEnabled history true)
 
@@ -210,12 +210,7 @@
 
                (= id :search)
                (do
-                 (.setToken history "/search"))
-
-               :else
-               (let [item (<! (util/edn-chan {:url (str "/items/" id)}))]
-                 (.setToken history (str "/" id))
-                 (om/update! app :current-item item))))
+                 (.setToken history "/search"))))
             (recur)))
 
       ;; event loop
@@ -229,12 +224,15 @@
                   (.setToken history (str "/" (:item/id data))) ;; XXX
                   (om/transact! app :current-item #(merge % data)))
 
-                ;; TODO: where's get? Why not here?
+                :get
+                (let [item (<! (util/edn-chan {:url (str "/items/" data)}))]
+                  (.setToken history (str "/" data))
+                  (om/update! app :current-item item))
 
                 :search
                 (let [data (<! (util/edn-chan
                                 {:url (str "/search/" (:subs data))}))]
-                  ;; XX: what if there's no hit?
+                  ;; XXX: what if there's no hit?
                   ;;(.setToken history (str "/items")) ;; XXX
                   (om/transact! app :items (fn [_] data)) ;; search results
                   )
