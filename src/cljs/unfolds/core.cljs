@@ -30,6 +30,7 @@
 (def app-state
   (atom {:route [:view-item]
          :items []
+         :saved-items []
          :current-item :none}))
 
 ;; =============================================================================
@@ -82,16 +83,28 @@
 
 (defn item-view [item owner]
   (reify
-    om/IRender
-    (render [_]
-      (dom/div #js {:id "item-view"}
-               (dom/h2 nil (:item/title item))
-               (dom/br nil "")
-               (link (str "#/" (:item/id item)) (:item/id item))
+    om/IRenderState
+    (render-state [_ _]
+      (let [event-chan (om/get-state owner [:event-chan])]
+        (dom/div #js {:id "item-view"}
+                 (dom/h2 nil (:item/title item))
+                 (dom/br nil "")
+                 (link (str "#/" (:item/id item)) (:item/id item))
+                 (str " ")
+                 (dom/button
+                #js {:id "save-item"
+                     :className "button"
+                     :onClick
+                     (fn [e]
+                       (put! event-chan
+                             {:op :save
+                              ;; XXX or just id?
+                              :data @item}))}
+                "Save")
                (dom/br nil "")
                (dom/br nil "")
                (apply dom/div nil
-                      (prepare-item (:item/text item)))))))
+                      (prepare-item (:item/text item))))))))
 
 (defn item-add-view [item owner]
   (reify
@@ -173,6 +186,8 @@
     (will-mount [_]
       (prn "MOUNTED.")
       (let [event-chan (om/get-state owner [:chans :event-chan])]
+
+        ;; event loop
         (go
           (while true
             (let [{:keys [op data]} (<! event-chan)]
@@ -199,6 +214,14 @@
                 (let [item (<! (util/edn-chan {:url (str "/items/" data)}))]
                   (.setToken history (str "/" data))
                   (om/update! app :current-item item))
+
+                :save
+                (do
+                  ;;(prn "Saved " data)
+                  (om/transact! app :saved-items #(conj data))
+                  ;; Now what do with this? +1 etc
+                  )
+
 
                 :search
                 (let [data (<! (util/edn-chan
