@@ -27,11 +27,37 @@
 (events/listen history EventType.NAVIGATE
   #(secretary/dispatch! (.-token %)))
 
-(def app-state
+;; TODO: There's a bug that turns :item/id into :id when
+;; it's (de)seralized into local storage. Bug in one of three below
+;; functions.
+
+(defn keywordify [m]
+  (cond
+   (map? m) (into {} (for [[k v] m] [(keyword k) (keywordify v)]))
+   (coll? m) (vec (map keywordify m))
+   :else m))
+
+(defn fetch [k default]
+  (let [item (.getItem js/localStorage k)]
+    (if (and item (not= item "null"))
+      (-> (.getItem js/localStorage k)
+          (or (js-obj))
+          (js/JSON.parse)
+          (js->clj)
+          (keywordify))
+      default)))
+
+(defn store [k obj]
+  (.setItem js/localStorage k (js/JSON.stringify (clj->js obj))))
+
+(def default-init-state
   (atom {:route [:view-item]
          :items []
          :saved-items []
          :current-item :none}))
+
+(defonce app-state
+  (atom (fetch "unfolds" default-init-state)))
 
 ;; =============================================================================
 ;; Helpers
@@ -176,6 +202,28 @@
                               (dom/br nil "")))))
                       items)))))))
 
+(defn saved-view [items owner]
+  (reify
+    om/IRenderState
+    (render-state [_ _]
+      (let [event-chan (om/get-state owner [:event-chan])]
+        (prn "items " items)
+        (dom/div nil
+                 (apply dom/ul #js {:id "items-list"}
+                        (map (fn [item]
+                               (let [i (first item)]
+                                 (dom/li nil
+                                         (dom/div nil
+                                                  (dom/b nil (:item/title i))
+                                                  (dom/br nil "")
+                                                  (link (str "#/" (:item/id i))
+                                                        (:item/id i))
+                                                  (dom/br nil "")
+                                                  (dom/br nil "")))))
+                             items)))))))
+
+
+
 (defn app-view [app owner]
   (reify
     om/IInitState
@@ -184,9 +232,10 @@
 
     om/IWillMount
     (will-mount [_]
-      (prn "MOUNTED.")
+      (prn "Saved items" (:saved-items @app-state))
       (let [event-chan (om/get-state owner [:chans :event-chan])]
-
+        ;; reset saved-items for dev debug
+        ;;(om/transact! app :saved-items (fn [] []))
         ;; event loop
         (go
           (while true
@@ -203,6 +252,10 @@
                 (do
                   (.setToken history "/search"))
 
+                :view-saved
+                (do
+                  (.setToken history "/saved"))
+
                 :create
                 (let [data (<! (util/edn-chan
                                 {:method :post :url "/items"
@@ -217,8 +270,10 @@
 
                 :save
                 (do
-                  ;;(prn "Saved " data)
-                  (om/transact! app :saved-items #(conj data))
+                  (prn "Saved " data) ;; :item/text etc
+                  ;; but in saved-items  just :text etc?
+                  (om/transact! app :saved-items #(conj % data))
+                  (prn "SUP " (:saved-items @app-state))
                   ;; Now what do with this? +1 etc
                   )
 
@@ -239,6 +294,10 @@
       (defroute "/search" []
         (om/update! app :route [:search-item]))
 
+      (defroute "/saved" []
+        (om/update! app :route [:saved-items]))
+
+
       (defroute "/:id" {id :id}
         (om/update! app :route [:view-item id])
         (put! (om/get-state owner [:chans :event-chan]) {:op :get :data id}))
@@ -251,6 +310,8 @@
             opts {:init-state chans}
             event-chan (om/get-state owner [:chans :event-chan]) ;; XXX
             ]
+        (store "unfolds" app) ;; too much?
+
         ;; menu bar
         (dom/div nil
           (dom/p nil
@@ -274,6 +335,7 @@
             (case (first (:route app))
               :add-item (om/build item-add-view (:current-item app) opts)
               :search-item (om/build search-view (:items app) opts)
+              :saved-items (om/build saved-view (:saved-items app) opts)
               :view-item (om/build item-view (:current-item app) opts))))))))
 
 (util/edn-xhr
