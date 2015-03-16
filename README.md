@@ -15,12 +15,6 @@ Feedback to @oskarth.
 [] Save entries for easier linking and ranking.
 
 
-[] Bug: add page sometimes borked.
-
-
-[] Bug: search page borked when clicking search first.
-
-
 Dev todos:
 
 [] Backup datomic db.
