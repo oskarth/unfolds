@@ -1,10 +1,21 @@
 # unfolds
 
-Live at `unfolds.oskarth.com`
+Live at `unfolds.oskarth.com`. Code structure largely inspired by
+@swannodette's The Immutable Stack
+[code examples](https://github.com/KitchenTableCoders/immutable-stack).
 
-Feedback to @oskarth.
+Feedback to [@oskarth](https://twitter.com/oskarth).
+
+## What is it?
+
+See the
+[introductory blog post](http://blog.oskarth.com/unfolds-a-jungle-of-ideas-prototype).
 
 ## TODO
+
+[] Make the link field bigger.
+
+[] Add stuff from Carlos convo.
 
 [] Multi-word links.
 

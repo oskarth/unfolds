@@ -297,7 +297,6 @@
       (defroute "/saved" []
         (om/update! app :route [:saved-items]))
 
-
       (defroute "/:id" {id :id}
         (om/update! app :route [:view-item id])
         (put! (om/get-state owner [:chans :event-chan]) {:op :get :data id}))
